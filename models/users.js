@@ -90,14 +90,22 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: false,
         enum: [
-            'What was the name of your first pet?',
-            'What city were you born in?',
-            'What was your mother\'s maiden name?',
-            'What was the name of your elementary school?',
-            'What was your childhood nickname?',
-            'What is your favorite book?',
-            'What was the make of your first car?',
-            'What is the name of your favorite teacher?'
+            'What is the name of a college you applied to but didn\'t attend?',
+            'What was the name of the first school you remember attending?',
+            'Where was the destination of your most memorable school field trip?',
+            'What was your maths teacher\'s surname in your 8th year of school?',
+            'What was the name of your first stuffed toy?',
+            'What was your driving instructor\'s first name?',
+            'What was the street name of the first house you lived in?',
+            'What was the name of your best friend in elementary school?',
+            'What was the model of your first bicycle?',
+            'What was the name of the hospital where you were born?',
+            'What was your favorite subject in high school?',
+            'What was the name of your first employer?',
+            'What was the make and model of your first car?',
+            'What was the name of the town where your grandparents lived?',
+            'What was the name of your first childhood friend?',
+            'What was the brand of your first computer or gaming console?'
         ]
     },
     securityAnswer: {

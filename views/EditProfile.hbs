@@ -9,6 +9,21 @@
         <h1>Edit Profile Details</h1>
         <p> Here you can edit your profile details here.</p>
 
+        {{#if error}}
+        <div style="background: #f8d7da; color: #721c24; padding: 15px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #f5c6cb;">
+            <strong>Error:</strong> {{error}}
+            {{#if details}}
+            <br>{{details}}
+            {{/if}}
+        </div>
+        {{/if}}
+        
+        {{#if success}}
+        <div style="background: #d4edda; color: #155724; padding: 15px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #c3e6cb;">
+            <strong>Success:</strong> {{success}}
+        </div>
+        {{/if}}
+
         <form id="edit-form" method = "POST" action ="/updateProfile">
             <div class="row1">
                 <div class="col1">
@@ -46,6 +61,106 @@
             <button type="submit" id="submit-btn">Submit</button>
             
         </form>
+
+        <hr style="margin: 30px 0; border: 1px solid #ddd;">
+
+        <h2 style="margin-top: 30px; margin-bottom: 15px;">Change Password</h2>
+        
+        {{#if passwordAgeInfo}}
+        <div style="background: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ffeaa7;">
+            <strong>Note:</strong> {{passwordAgeInfo}}
+        </div>
+        {{/if}}
+
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 5px; max-width: 600px;">
+            <form method="POST" action="/change-password">
+                <div style="margin-bottom: 20px;">
+                    <label for="oldPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">Current Password *</label>
+                    <input type="password" id="oldPassword" name="oldPassword" required autocomplete="current-password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"/>
+                    <small style="color: #666; font-size: 12px;">Enter your current password to verify your identity.</small>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label for="newPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">New Password *</label>
+                    <input type="password" id="newPassword" name="newPassword" required autocomplete="new-password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"/>
+                    <small style="color: #666; font-size: 12px;">Must be at least 8 characters with uppercase, lowercase, number, and special character.</small>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label for="confirmPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">Confirm New Password *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"/>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="background: #00667D; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
+                        Change Password
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <hr style="margin: 30px 0; border: 1px solid #ddd;">
+
+        <h2 style="margin-top: 30px; margin-bottom: 15px;">{{#if user.securityQuestion}}Change{{else}}Set{{/if}} Security Question</h2>
+        
+        {{#unless user.securityQuestion}}
+        <div style="background: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ffeaa7;">
+            <strong>Note:</strong> You don't have a security question set. Please set one now.
+        </div>
+        {{/unless}}
+        
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 5px; max-width: 600px;">
+            <form method="POST" action="/update-security-question">
+                {{#if user.securityQuestion}}
+                <div style="margin-bottom: 20px;">
+                    <label for="currentSecurityAnswer" style="display: block; margin-bottom: 5px; font-weight: bold;">Current Security Answer *</label>
+                    <input type="text" id="currentSecurityAnswer" name="currentSecurityAnswer" required maxlength="100" autocomplete="off" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"/>
+                    <small style="color: #666; font-size: 12px;">Enter your current security answer to verify your identity.</small>
+                </div>
+                {{else}}
+                <input type="hidden" name="currentSecurityAnswer" value="">
+                {{/if}}
+
+                <div style="margin-bottom: 20px;">
+                    <label for="securityQuestion" style="display: block; margin-bottom: 5px; font-weight: bold;">{{#if user.securityQuestion}}New {{/if}}Security Question *</label>
+                    <select id="securityQuestion" name="securityQuestion" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        <option value="">Select a security question</option>
+                        {{#if user.securityQuestion}}
+                        <option value="{{user.securityQuestion}}" selected>{{user.securityQuestion}}</option>
+                        {{/if}}
+                        <option value="What is the name of a college you applied to but didn't attend?">What is the name of a college you applied to but didn't attend?</option>
+                        <option value="What was the name of the first school you remember attending?">What was the name of the first school you remember attending?</option>
+                        <option value="Where was the destination of your most memorable school field trip?">Where was the destination of your most memorable school field trip?</option>
+                        <option value="What was your maths teacher's surname in your 8th year of school?">What was your maths teacher's surname in your 8th year of school?</option>
+                        <option value="What was the name of your first stuffed toy?">What was the name of your first stuffed toy?</option>
+                        <option value="What was your driving instructor's first name?">What was your driving instructor's first name?</option>
+                        <option value="What was the street name of the first house you lived in?">What was the street name of the first house you lived in?</option>
+                        <option value="What was the name of your best friend in elementary school?">What was the name of your best friend in elementary school?</option>
+                        <option value="What was the model of your first bicycle?">What was the model of your first bicycle?</option>
+                        <option value="What was the name of the hospital where you were born?">What was the name of the hospital where you were born?</option>
+                        <option value="What was your favorite subject in high school?">What was your favorite subject in high school?</option>
+                        <option value="What was the name of your first employer?">What was the name of your first employer?</option>
+                        <option value="What was the make and model of your first car?">What was the make and model of your first car?</option>
+                        <option value="What was the name of the town where your grandparents lived?">What was the name of the town where your grandparents lived?</option>
+                        <option value="What was the name of your first childhood friend?">What was the name of your first childhood friend?</option>
+                        <option value="What was the brand of your first computer or gaming console?">What was the brand of your first computer or gaming console?</option>
+                    </select>
+                    <small style="color: #666; font-size: 12px;">{{#if user.securityQuestion}}Select a new security question.{{else}}Select a security question.{{/if}}</small>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label for="newSecurityAnswer" style="display: block; margin-bottom: 5px; font-weight: bold;">{{#if user.securityQuestion}}New {{/if}}Security Answer *</label>
+                    <input type="text" id="newSecurityAnswer" name="newSecurityAnswer" required maxlength="100" autocomplete="off" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"/>
+                    <small style="color: #666; font-size: 12px;">Enter the answer to your {{#if user.securityQuestion}}new {{/if}}security question (max 100 characters).</small>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="background: #00667D; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
+                        {{#if user.securityQuestion}}Update{{else}}Set{{/if}} Security Question
+                    </button>
+                </div>
+            </form>
+        </div>
 
         
     </div>

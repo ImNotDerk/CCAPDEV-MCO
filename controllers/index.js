@@ -13,15 +13,42 @@ const { requireAuth, optionalAuth } = require('../middleware/auth.js');
 const passwordChange = require('./passwordChange.js');
 const forgotPassword = require('./forgotPassword.js');
 const logger = require('../utils/logger');
+const ErrorHandler = require('../utils/errorHandler');
 
 function errorFn(error) {
     console.error(error);
 }
 
 router.get('/', function(req, resp){
-    const error = req.query.error;
-    const errorDetails = req.query.details;
-    const success = req.query.success;
+    // Check for obfuscated error/success tokens
+    let error = null;
+    let errorDetails = null;
+    let success = null;
+    
+    if (req.query.err) {
+        const errorData = ErrorHandler.getError(req, req.query.err);
+        if (errorData) {
+            error = errorData.type;
+            errorDetails = errorData.message;
+        }
+    }
+    
+    if (req.query.msg) {
+        const successMsg = ErrorHandler.getSuccess(req, req.query.msg);
+        if (successMsg) {
+            success = successMsg;
+        }
+    }
+    
+    // Fallback to old format for backward compatibility
+    if (!error && req.query.error) {
+        error = req.query.error;
+        errorDetails = req.query.details;
+    }
+    if (!success && req.query.success) {
+        success = req.query.success;
+    }
+    
     resp.render('LoginPage',{
         layout: 'login',
         title: 'Lab Reservation',
@@ -76,11 +103,13 @@ router.post('/submit-helpdesk', requireAuth, async (req, res) => {
     // Validate input length
     if (title && title.length > 200) {
         logger.logValidation('title', title, 'Exceeds maximum length of 200 characters', req.user.id);
-        return res.redirect('/helpdesk?error=validation&details=' + encodeURIComponent('Title must be 200 characters or less'));
+        const token = ErrorHandler.setError(req, 'validation', 'Title must be 200 characters or less');
+        return res.redirect('/helpdesk?err=' + token);
     }
     if (description && description.length > 2000) {
         logger.logValidation('description', description, 'Exceeds maximum length of 2000 characters', req.user.id);
-        return res.redirect('/helpdesk?error=validation&details=' + encodeURIComponent('Description must be 2000 characters or less'));
+        const token = ErrorHandler.setError(req, 'validation', 'Description must be 2000 characters or less');
+        return res.redirect('/helpdesk?err=' + token);
     }
 
     try {
@@ -146,7 +175,8 @@ router.get('/home', requireAuth, async (req, res) => {
             user: formattedUser });
     } catch (error) {
         errorFn(error);
-        res.redirect('/?error=server');
+        const token = ErrorHandler.setError(req, 'server', 'An error occurred. Please try again.');
+        res.redirect('/?err=' + token);
     }
 });
 
@@ -181,7 +211,8 @@ router.post('/home', requireAuth, async (req, res) => {
             reservations, user });
     } catch (error) {
         errorFn(error);
-        res.redirect('/?error=server');
+        const token = ErrorHandler.setError(req, 'server', 'An error occurred. Please try again.');
+        res.redirect('/?err=' + token);
     }
 });
 
@@ -199,22 +230,71 @@ router.get('/Profile', requireAuth, async (req,resp) =>{
     title: 'Profile',
     user,
     lastLogin: user.lastLogin,
-    lastActivity: user.lastActivity
+    lastActivity: user.lastActivity,
+    isAdmin: isAdmin
     });
 });
 
 router.get('/EditProfile', requireAuth, async (req,resp) =>{
     await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = await User.findById(req.user._id).lean();
     
     // Determine layout based on user role
-    const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
-    const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || req.user._legacyRole === 'ADMIN';
+    const userRole = user.accountType || (user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || user._legacyRole === 'ADMIN';
     const layout = isAdmin ? 'admin' : 'editprofile';
+    
+    // Calculate password age
+    let passwordAgeInfo = null;
+    if (user.passwordCreatedAt) {
+        const daysSinceCreation = Math.floor((new Date() - new Date(user.passwordCreatedAt)) / (1000 * 60 * 60 * 24));
+        const hoursSinceCreation = Math.floor((new Date() - new Date(user.passwordCreatedAt)) / (1000 * 60 * 60));
+        
+        if (daysSinceCreation < 1) {
+            const hoursLeft = 24 - hoursSinceCreation;
+            passwordAgeInfo = `Your password was created ${hoursSinceCreation} hour(s) ago. Password must be at least 1 day old before it can be changed. Please try again in ${hoursLeft} hour(s).`;
+        } else {
+            passwordAgeInfo = `Your password is ${daysSinceCreation} day(s) old.`;
+        }
+    }
+    
+    // Check for obfuscated error/success tokens
+    let error = null;
+    let details = null;
+    let success = null;
+    
+    if (req.query.err) {
+        const errorData = ErrorHandler.getError(req, req.query.err);
+        if (errorData) {
+            error = errorData.type;
+            details = errorData.message;
+        }
+    }
+    
+    if (req.query.msg) {
+        const successMsg = ErrorHandler.getSuccess(req, req.query.msg);
+        if (successMsg) {
+            success = successMsg;
+        }
+    }
+    
+    // Fallback to old format for backward compatibility
+    if (!error && req.query.error) {
+        error = req.query.error;
+        details = req.query.details ? decodeURIComponent(req.query.details) : null;
+    }
+    if (!success && req.query.success) {
+        success = req.query.success ? decodeURIComponent(req.query.success) : null;
+    }
     
     resp.render('EditProfile',{
         layout: layout,
         title: 'Edit Profile',
-        user: req.user,
+        user: user,
+        error: error,
+        details: details,
+        success: success,
+        passwordAgeInfo: passwordAgeInfo
     });
 });
 
@@ -247,15 +327,18 @@ router.post('/updateProfile', requireAuth, async (req, resp) => {
     // Validate input lengths
     if (fname && fname.length > 50) {
         logger.logValidation('fname', fname, 'Exceeds maximum length', req.user.id);
-        return res.redirect('/EditProfile?error=validation&details=' + encodeURIComponent('First name must be 50 characters or less'));
+        const token = ErrorHandler.setError(req, 'validation', 'First name must be 50 characters or less');
+        return resp.redirect('/EditProfile?err=' + token);
     }
     if (lname && lname.length > 50) {
         logger.logValidation('lname', lname, 'Exceeds maximum length', req.user.id);
-        return res.redirect('/EditProfile?error=validation&details=' + encodeURIComponent('Last name must be 50 characters or less'));
+        const token = ErrorHandler.setError(req, 'validation', 'Last name must be 50 characters or less');
+        return resp.redirect('/EditProfile?err=' + token);
     }
     if (description1 && description1.length > 500) {
         logger.logValidation('description1', description1, 'Exceeds maximum length', req.user.id);
-        return res.redirect('/EditProfile?error=validation&details=' + encodeURIComponent('Description must be 500 characters or less'));
+        const token = ErrorHandler.setError(req, 'validation', 'Description must be 500 characters or less');
+        return resp.redirect('/EditProfile?err=' + token);
     }
 
     let updateFields = {};
@@ -283,6 +366,208 @@ router.post('/updateProfile', requireAuth, async (req, resp) => {
     }
 });
 
+// Update Security Question Route
+router.post('/update-security-question', requireAuth, async (req, resp) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const { currentSecurityAnswer, securityQuestion, newSecurityAnswer } = req.body;
+    const userId = req.user._id;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            const token = ErrorHandler.setError(req, 'security', 'User not found');
+            return resp.redirect('/EditProfile?err=' + token);
+        }
+
+        // Check if user has a security question set
+        const hasSecurityQuestion = user.securityQuestion && user.securityAnswer;
+        
+        // Validate required fields
+        if (hasSecurityQuestion) {
+            // If security question exists, require current answer
+            if (!currentSecurityAnswer || !securityQuestion || !newSecurityAnswer) {
+                const token = ErrorHandler.setError(req, 'security', 'All fields are required');
+                return resp.redirect('/EditProfile?err=' + token);
+            }
+        } else {
+            // If no security question exists, only require new question and answer
+            if (!securityQuestion || !newSecurityAnswer) {
+                const token = ErrorHandler.setError(req, 'security', 'Security question and answer are required');
+                return resp.redirect('/EditProfile?err=' + token);
+            }
+        }
+
+        // Validate security answer length
+        if (newSecurityAnswer.length > 100) {
+            logger.writeLog('WARN', 'SECURITY_QUESTION_CHANGE', 'Security answer validation failed - exceeds length limit', {
+                userId: userId.toString(),
+                email: user.email,
+                answerLength: newSecurityAnswer.length,
+                timestamp: new Date().toISOString()
+            });
+            const token = ErrorHandler.setError(req, 'security', 'Security answer must be 100 characters or less');
+            return resp.redirect('/EditProfile?err=' + token);
+        }
+
+        // Validate security answer is not empty after trimming
+        if (!newSecurityAnswer.trim()) {
+            logger.writeLog('WARN', 'SECURITY_QUESTION_CHANGE', 'Security answer validation failed - empty answer', {
+                userId: userId.toString(),
+                email: user.email,
+                timestamp: new Date().toISOString()
+            });
+            const token = ErrorHandler.setError(req, 'security', 'Security answer cannot be empty');
+            return resp.redirect('/EditProfile?err=' + token);
+        }
+
+        // Verify current security answer only if one exists
+        if (hasSecurityQuestion) {
+            const bcrypt = require('bcrypt');
+            const normalizedCurrentAnswer = currentSecurityAnswer.trim().toLowerCase();
+            const isCurrentAnswerMatch = await bcrypt.compare(normalizedCurrentAnswer, user.securityAnswer);
+            
+            if (!isCurrentAnswerMatch) {
+                logger.writeLog('WARN', 'SECURITY_QUESTION_CHANGE', 'Incorrect current security answer provided', {
+                    userId: userId.toString(),
+                    email: user.email,
+                    timestamp: new Date().toISOString()
+                });
+                console.log('Security question change failed - incorrect current answer:', {
+                    userId: userId.toString(),
+                    email: user.email
+                });
+                const token = ErrorHandler.setError(req, 'security', 'Current security answer is incorrect');
+                return resp.redirect('/EditProfile?err=' + token);
+            }
+        }
+
+        // Validate security question is in the enum
+        const VALID_SECURITY_QUESTIONS = [
+            'What is the name of a college you applied to but didn\'t attend?',
+            'What was the name of the first school you remember attending?',
+            'Where was the destination of your most memorable school field trip?',
+            'What was your maths teacher\'s surname in your 8th year of school?',
+            'What was the name of your first stuffed toy?',
+            'What was your driving instructor\'s first name?',
+            'What was the street name of the first house you lived in?',
+            'What was the name of your best friend in elementary school?',
+            'What was the model of your first bicycle?',
+            'What was the name of the hospital where you were born?',
+            'What was your favorite subject in high school?',
+            'What was the name of your first employer?',
+            'What was the make and model of your first car?',
+            'What was the name of the town where your grandparents lived?',
+            'What was the name of your first childhood friend?',
+            'What was the brand of your first computer or gaming console?'
+        ];
+
+        if (!VALID_SECURITY_QUESTIONS.includes(securityQuestion)) {
+            logger.writeLog('WARN', 'SECURITY_QUESTION_CHANGE', 'Invalid security question selected', {
+                userId: userId.toString(),
+                email: user.email,
+                selectedQuestion: securityQuestion,
+                timestamp: new Date().toISOString()
+            });
+            const token = ErrorHandler.setError(req, 'security', 'Invalid security question selected');
+            return resp.redirect('/EditProfile?err=' + token);
+        }
+
+        // Hash new security answer
+        const bcrypt = require('bcrypt');
+        const saltRounds = 10;
+        const normalizedNewAnswer = newSecurityAnswer.trim().toLowerCase();
+        const hashedNewAnswer = await bcrypt.hash(normalizedNewAnswer, saltRounds);
+
+        // Log before update
+        const action = hasSecurityQuestion ? 'UPDATE' : 'SET';
+        const oldQuestion = user.securityQuestion || 'None';
+        
+        console.log('Security question change attempt:', {
+            userId: userId.toString(),
+            email: user.email,
+            action: action,
+            oldQuestion: oldQuestion,
+            newQuestion: securityQuestion
+        });
+
+        // Update security question and answer
+        user.securityQuestion = securityQuestion;
+        user.securityAnswer = hashedNewAnswer;
+        
+        try {
+            // Save using Mongoose save method
+            const savedUser = await user.save();
+            
+            // Verify the save was successful by querying the database
+            const updatedUser = await User.findById(userId);
+            if (!updatedUser) {
+                throw new Error('User not found after save');
+            }
+            
+            if (updatedUser.securityQuestion !== securityQuestion) {
+                // If save didn't work, try using findByIdAndUpdate as fallback
+                console.warn('Security question not updated via save(), trying findByIdAndUpdate...');
+                await User.findByIdAndUpdate(userId, {
+                    securityQuestion: securityQuestion,
+                    securityAnswer: hashedNewAnswer
+                }, { new: true, runValidators: true });
+                
+                // Verify again
+                const recheckedUser = await User.findById(userId);
+                if (!recheckedUser || recheckedUser.securityQuestion !== securityQuestion) {
+                    throw new Error('Security question was not saved correctly even with findByIdAndUpdate');
+                }
+            }
+
+            // Log successful change with details
+            logger.writeLog('INFO', 'SECURITY_QUESTION_CHANGE', `Security question ${action === 'SET' ? 'set' : 'updated'} successfully`, {
+                userId: userId.toString(),
+                email: user.email,
+                action: action,
+                oldQuestion: oldQuestion,
+                newQuestion: securityQuestion,
+                timestamp: new Date().toISOString()
+            });
+
+            console.log('Security question change successful:', {
+                userId: userId.toString(),
+                email: user.email,
+                action: action,
+                newQuestion: securityQuestion
+            });
+
+            const successMessage = hasSecurityQuestion 
+                ? 'Security question updated successfully!' 
+                : 'Security question set successfully!';
+            const token = ErrorHandler.setSuccess(req, successMessage);
+            return resp.redirect('/EditProfile?msg=' + token);
+        } catch (saveError) {
+            console.error('Error saving security question:', saveError);
+            logger.writeLog('ERROR', 'SECURITY_QUESTION_CHANGE', 'Failed to save security question', {
+                userId: userId.toString(),
+                email: user.email,
+                action: action,
+                error: saveError.message,
+                stack: saveError.stack,
+                timestamp: new Date().toISOString()
+            });
+            const token = ErrorHandler.setError(req, 'server', 'Failed to save security question. Please try again.');
+            return resp.redirect('/EditProfile?err=' + token);
+        }
+    } catch (error) {
+        console.error('Security question update error:', error);
+        logger.writeLog('ERROR', 'SECURITY_QUESTION_CHANGE', 'Failed to update security question - exception caught', {
+            userId: userId ? userId.toString() : 'unknown',
+            email: req.user ? req.user.email : 'unknown',
+            error: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
+        });
+        const token = ErrorHandler.setError(req, 'server', 'An error occurred. Please try again.');
+        return resp.redirect('/EditProfile?err=' + token);
+    }
+});
+
 router.get('/LoginPage', function(req, resp){
     const error = req.query.error;
     const errorDetails = req.query.details;
@@ -297,15 +582,6 @@ router.get('/LoginPage', function(req, resp){
 });
 
 // Forgot Password Routes
-router.get('/forgotpassword', function(req, resp) {
-    resp.render('forgotPassword', {
-        layout: false,
-        title: 'Forgot Password',
-        message: null,
-        messageType: null
-    });
-});
-
 router.get('/forgotpassword', function(req, resp) {
     resp.render('forgotPassword', {
         layout: 'login',
@@ -334,8 +610,6 @@ router.post('/reset-password', async function(req, resp) {
 });
 
 // Change Password Routes
-const passwordChange = require('./passwordChange.js');
-
 router.get('/change-password', requireAuth, async (req, resp) => {
     await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const user = await User.findById(req.user._id).lean();
@@ -345,15 +619,18 @@ router.get('/change-password', requireAuth, async (req, resp) => {
     const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || user._legacyRole === 'ADMIN';
     const layout = isAdmin ? 'admin' : 'profile';
     
-    // Check if user has security question set
-    if (!user.securityQuestion || !user.securityAnswer) {
-        return resp.render('changePassword', {
-            layout: layout,
-            title: 'Change Password',
-            user: user,
-            error: 'Security question not set',
-            details: 'Please contact administrator to set up your security question.'
-        });
+    // Calculate password age
+    let passwordAgeInfo = null;
+    if (user.passwordCreatedAt) {
+        const daysSinceCreation = Math.floor((new Date() - new Date(user.passwordCreatedAt)) / (1000 * 60 * 60 * 24));
+        const hoursSinceCreation = Math.floor((new Date() - new Date(user.passwordCreatedAt)) / (1000 * 60 * 60));
+        
+        if (daysSinceCreation < 1) {
+            const hoursLeft = 24 - hoursSinceCreation;
+            passwordAgeInfo = `Your password was created ${hoursSinceCreation} hour(s) ago. Password must be at least 1 day old before it can be changed. Please try again in ${hoursLeft} hour(s).`;
+        } else {
+            passwordAgeInfo = `Your password is ${daysSinceCreation} day(s) old.`;
+        }
     }
     
     resp.render('changePassword', {
@@ -362,7 +639,8 @@ router.get('/change-password', requireAuth, async (req, resp) => {
         user: user,
         error: req.query.error ? decodeURIComponent(req.query.error) : null,
         details: req.query.details ? decodeURIComponent(req.query.details) : null,
-        success: req.query.success ? decodeURIComponent(req.query.success) : null
+        success: req.query.success === 'changed' ? true : null,
+        passwordAgeInfo: passwordAgeInfo
     });
 });
 

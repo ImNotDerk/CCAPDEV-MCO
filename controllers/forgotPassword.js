@@ -1,19 +1,10 @@
 const User = require('../models/users.js');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const saltRounds = 10;
-const TOKEN_EXPIRY_HOURS = 1; // Token expires in 1 hour
-const MAX_RESET_REQUESTS_PER_HOUR = 3; // Rate limiting
 const PASSWORD_HISTORY_LIMIT = 5;
-
-/**
- * Generate cryptographically secure random token
- */
-function generateResetToken() {
-    return crypto.randomBytes(32).toString('hex');
-}
+const MIN_PASSWORD_AGE_DAYS = 1; // Password must be at least 1 day old before reset
 
 /**
  * Validate password complexity (same as registration)
@@ -70,46 +61,15 @@ async function checkPasswordReuse(userId, newPassword) {
 }
 
 /**
- * Handle forgot password request - Step 1: Email verification
+ * Handle forgot password request - Step 1: Email entry, then show security question
  * Security: Generic response - don't reveal if email exists
  */
 async function handleForgotPassword(req, res) {
     try {
-        const { email, step } = req.body;
+        const { email } = req.body;
 
-        // Step 2: Show security question if email provided (from query or body)
-        const emailToVerify = email || req.query.email;
-        const stepToProcess = step || req.query.step;
-        
-        if (stepToProcess === 'verify-email' && emailToVerify) {
-            const normalizedEmail = emailToVerify.toLowerCase().trim();
-            const user = await User.findOne({ email: normalizedEmail });
-
-            // Generic message even if user doesn't exist (security)
-            if (!user || !user.securityQuestion) {
-                logger.logPasswordReset('PASSWORD_RESET_REQUEST', user ? user.id : 'unknown', false, { 
-                    reason: user ? 'No security question set' : 'User not found' 
-                });
-                return res.render('forgotPassword', {
-                    layout: 'login',
-                    title: 'Forgot Password',
-                    message: 'If an account with that email exists and has a security question set, you will be able to reset your password.',
-                    messageType: 'info'
-                });
-            }
-
-            // Show security question
-            return res.render('forgotPasswordSecurity', {
-                layout: 'login',
-                title: 'Answer Security Question',
-                email: normalizedEmail,
-                securityQuestion: user.securityQuestion,
-                error: null
-            });
-        }
-
-        // Step 1: Initial email entry
-        if (!email || typeof email !== 'string') {
+        // Step 1: Initial GET request - show email entry form
+        if (req.method === 'GET' || !email || typeof email !== 'string') {
             return res.render('forgotPassword', {
                 layout: 'login',
                 title: 'Forgot Password',
@@ -118,13 +78,33 @@ async function handleForgotPassword(req, res) {
             });
         }
 
-        // This code path should not be reached - step should be 'verify-email'
-        // But handle it gracefully
-        return res.render('forgotPassword', {
+        // Step 2: POST request with email - show security question
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await User.findOne({ email: normalizedEmail });
+
+        // Generic message even if user doesn't exist (security)
+        if (!user || !user.securityQuestion) {
+            logger.logPasswordReset('PASSWORD_RESET_REQUEST', user ? user.id : 'unknown', false, { 
+                reason: user ? 'No security question set' : 'User not found' 
+            });
+            return res.render('forgotPassword', {
+                layout: 'login',
+                title: 'Forgot Password',
+                message: 'If an account with that email exists and has a security question set, you will be able to reset your password.',
+                messageType: 'info'
+            });
+        }
+
+        // Show security question
+        logger.logPasswordReset('PASSWORD_RESET_REQUEST', user.id, true, { 
+            reason: 'Security question displayed' 
+        });
+        return res.render('forgotPasswordSecurity', {
             layout: 'login',
-            title: 'Forgot Password',
-            message: null,
-            messageType: null
+            title: 'Answer Security Question',
+            email: normalizedEmail,
+            securityQuestion: user.securityQuestion,
+            error: null
         });
     } catch (error) {
         console.error('Forgot password error:', error);
@@ -135,8 +115,8 @@ async function handleForgotPassword(req, res) {
         return res.render('forgotPassword', {
             layout: 'login',
             title: 'Forgot Password',
-            message: 'If an account with that email exists, a password reset link has been sent.',
-            messageType: 'info'
+            message: 'An error occurred. Please try again.',
+            messageType: 'error'
         });
     }
 }
@@ -212,7 +192,6 @@ async function handleSecurityAnswerVerification(req, res) {
             layout: 'login',
             title: 'Reset Password',
             email: normalizedEmail,
-            token: null, // Not using token anymore
             error: null
         });
     } catch (error) {
@@ -250,8 +229,7 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: 'Email is required.',
-                    email: null,
-                    token: null
+                    email: null
                 });
             }
 
@@ -264,9 +242,33 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: 'Invalid request. Please start over.',
-                    email: null,
-                    token: null
+                    email: null
                 });
+            }
+
+            // Check password aging - password must be at least 1 day old before reset
+            if (user.passwordCreatedAt) {
+                const daysSinceCreation = (new Date() - new Date(user.passwordCreatedAt)) / (1000 * 60 * 60 * 24);
+                
+                if (daysSinceCreation < MIN_PASSWORD_AGE_DAYS) {
+                    const hoursLeft = Math.ceil((MIN_PASSWORD_AGE_DAYS - daysSinceCreation) * 24);
+                    const reason = `Password must be at least ${MIN_PASSWORD_AGE_DAYS} day(s) old before it can be reset. Please try again in ${hoursLeft} hour(s).`;
+                    
+                    logger.writeLog('WARN', 'PASSWORD_RESET', 'Password reset blocked - password too new', {
+                        userId: user.id.toString(),
+                        email: user.email,
+                        daysSinceCreation: Math.floor(daysSinceCreation),
+                        reason: reason
+                    });
+                    logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', user.id, false, { reason: reason });
+                    
+                    return res.render('resetPassword', {
+                        layout: 'login',
+                        title: 'Reset Password',
+                        error: reason,
+                        email: normalizedEmail
+                    });
+                }
             }
 
             // Validate passwords provided
@@ -275,8 +277,7 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: 'Both password fields are required.',
-                    email: normalizedEmail,
-                    token: null
+                    email: normalizedEmail
                 });
             }
 
@@ -287,8 +288,7 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: 'Passwords do not match.',
-                    email: normalizedEmail,
-                    token: null
+                    email: normalizedEmail
                 });
             }
 
@@ -301,8 +301,7 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: errorMessage,
-                    email: normalizedEmail,
-                    token: null
+                    email: normalizedEmail
                 });
             }
 
@@ -314,8 +313,7 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: reuseCheck.reason,
-                    email: normalizedEmail,
-                    token: null
+                    email: normalizedEmail
                 });
             }
 
@@ -361,8 +359,7 @@ async function handleResetPassword(req, res) {
             layout: 'login',
             title: 'Reset Password',
             error: 'An error occurred. Please try again.',
-            email: null,
-            token: null
+            email: null
         });
     }
 }

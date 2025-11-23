@@ -1,35 +1,22 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Lab Reservation</title>
-
-
-</head>
-<body>
-    <div id="main">
-        <h1>My Profile</h1>
-        <div class="profile-container"> 
-            <img src="{{user.profilepic}}">
-            <div class="profile-content">
-                <div class="box" id="firstCol"><p><b>Name:</b> {{user.fname}} {{user.lname}}</p></div>
-                <div class="box" id="secondCol"><p><b>ID:</b> {{user.id}}</p></div>
-                <div class="fullRow"><p><b>Email: </b>  {{user.email}}</p></div>
-                {{#if lastLogin}}
-                <div class="fullRow"><p><b>Last Login: </b> {{lastLogin}}</p></div>
-                {{/if}}
-                {{#if lastActivity}}
-                <div class="fullRow"><p><b>Last Activity: </b> {{lastActivity}}</p></div>
-                {{/if}}
-                <div class="description1"><p><b>Description:</b></p> {{user.description1}}<br></div>
-                <div class="description2">
-                    <a href= '/EditProfile' id="Edit">Edit Profile</a>
-                    <a href= '/change-password' id="ChangePassword" style="margin-left: 15px;">Change Password</a>
-                </div>
-                </form>
+<div id="main">
+    <h1>My Profile</h1>
+    <div class="profile-container"> 
+        <img src="{{user.profilepic}}">
+        <div class="profile-content">
+            <div class="box" id="firstCol"><p><b>Name:</b> {{user.fname}} {{user.lname}}</p></div>
+            <div class="box" id="secondCol"><p><b>ID:</b> {{user.id}}</p></div>
+            <div class="fullRow"><p><b>Email: </b>  {{user.email}}</p></div>
+            {{#if lastLogin}}
+            <div class="fullRow"><p><b>Last Login: </b> {{lastLogin}}</p></div>
+            {{/if}}
+            {{#if lastActivity}}
+            <div class="fullRow"><p><b>Last Activity: </b> {{lastActivity}}</p></div>
+            {{/if}}
+            <div class="description1"><p><b>Description:</b></p> {{user.description1}}<br></div>
+            <div class="description2" style="margin-top: 20px; display: flex; gap: 15px;">
+                <a href='/EditProfile' id="Edit" style="padding: 10px 20px; background: #00667D; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">Edit Profile</a>
+                <a href='/change-password' id="ChangePassword" style="padding: 10px 20px; background: #00667D; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">Change Password</a>
             </div>
         </div>
     </div>
-
-</body>
-
-</html>
+</div>
