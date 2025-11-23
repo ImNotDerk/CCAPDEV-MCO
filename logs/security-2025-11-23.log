@@ -87,3 +87,4 @@
 {"timestamp":"2025-11-23T16:52:05.268Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_VERIFIED","userId":"admin","success":true}
 {"timestamp":"2025-11-23T16:52:21.121Z","level":"WARN","category":"PASSWORD_RESET","message":"Password reset blocked - password too new","userId":"admin","email":"admin1@dlsu.edu.ph","daysSinceCreation":0,"reason":"Password must be at least 1 day(s) old before it can be reset. Please try again in 22 hour(s)."}
 {"timestamp":"2025-11-23T16:52:21.122Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_ATTEMPT","userId":"admin","success":false,"reason":"Password must be at least 1 day(s) old before it can be reset. Please try again in 22 hour(s)."}
+{"timestamp":"2025-11-23T16:53:49.143Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-23T16:51:16.983Z"}
