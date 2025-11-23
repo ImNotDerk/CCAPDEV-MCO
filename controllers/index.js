@@ -9,15 +9,25 @@ const reserve = require('./reservation.js');
 const reservations = require('../models/reservations.js');
 const labsController = require('./laboratory.js');
 const helpDesk = require('../models/helpDesk.js');
+const { requireAuth, optionalAuth } = require('../middleware/auth.js');
+const passwordChange = require('./passwordChange.js');
+const forgotPassword = require('./forgotPassword.js');
+const logger = require('../utils/logger');
 
 function errorFn(error) {
     console.error(error);
 }
 
 router.get('/', function(req, resp){
+    const error = req.query.error;
+    const errorDetails = req.query.details;
+    const success = req.query.success;
     resp.render('LoginPage',{
         layout: 'login',
-        title: 'Lab Reservation'
+        title: 'Lab Reservation',
+        error: error,
+        errorDetails: errorDetails,
+        success: success
     });
 });
 
@@ -34,38 +44,50 @@ router.post('/register', function (req,resp){
     authRegister.handleRegistration(req, resp);
 });
 
-router.get('/reservation', async (req,resp) =>{
-    const user = await User.findById(req.session.userId).lean();
+router.get('/reservation', requireAuth, async (req,resp) =>{
+    // Update last activity
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    
     const labs = await Laboratory.find({}).lean();
     const reserveDates = await reserve.getNextFiveWeekdays();
 
     resp.render('Reservation', {
         layout: 'reservation',
         title: 'Reservations',
-        user,
+        user: req.user,
         labs,
         reserveDate: reserveDates
     });
 });
 
-router.get('/helpdesk', async (req,resp) => {
-    const user = await User.findById(req.session.userId).lean();
+router.get('/helpdesk', requireAuth, async (req,resp) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     resp.render('helpdesk',{
         layout: 'helpdesk',
         title: 'Helpdesk',
-        user,
+        user: req.user,
     });
 });
 
-router.post('/submit-helpdesk', async (req, res) => {
-    const user = await User.findById(req.session.userId).lean();
+router.post('/submit-helpdesk', requireAuth, async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const { userID, userEmail, title, description} = req.body;
+    
+    // Validate input length
+    if (title && title.length > 200) {
+        logger.logValidation('title', title, 'Exceeds maximum length of 200 characters', req.user.id);
+        return res.redirect('/helpdesk?error=validation&details=' + encodeURIComponent('Title must be 200 characters or less'));
+    }
+    if (description && description.length > 2000) {
+        logger.logValidation('description', description, 'Exceeds maximum length of 2000 characters', req.user.id);
+        return res.redirect('/helpdesk?error=validation&details=' + encodeURIComponent('Description must be 2000 characters or less'));
+    }
 
     try {
         res.render('helpdesk', {
             layout: 'helpdesk',
             title: 'Helpdesk',
-            user,
+            user: req.user,
         });
         try {
             const sendConcern = await helpDesk.insertMany(
@@ -80,9 +102,12 @@ router.post('/submit-helpdesk', async (req, res) => {
     }
 });
 
-router.get('/home', async (req, res) => {
+router.get('/home', requireAuth, async (req, res) => {
     try {
-        const user = await User.findById(req.session.userId).lean(); 
+        // Update last activity
+        await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+        
+        const user = req.user;
 
         let reservations =  await Laboratory.aggregate([
             {
@@ -107,18 +132,28 @@ router.get('/home', async (req, res) => {
 
         console.log(reservations);
         
+        // Format dates for display
+        const formattedUser = {
+            ...user,
+            lastLoginFormatted: user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never',
+            lastActivityFormatted: user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'Never'
+        };
+        
         res.render('main', { 
             layout:'index', 
             title: 'Home',
-            reservations, user });
+            reservations, 
+            user: formattedUser });
     } catch (error) {
         errorFn(error);
+        res.redirect('/?error=server');
     }
 });
 
-router.post('/home', async (req, res) => {
+router.post('/home', requireAuth, async (req, res) => {
     try {
-        const user = await User.findById(req.session.userId).lean(); 
+        await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+        const user = req.user;
 
         let reservations =  await Laboratory.aggregate([
             {
@@ -146,30 +181,34 @@ router.post('/home', async (req, res) => {
             reservations, user });
     } catch (error) {
         errorFn(error);
+        res.redirect('/?error=server');
     }
 });
 
-router.get('/Profile', async (req,resp) =>{
-    const user = await User.findById(req.session.userId).lean();
+router.get('/Profile', requireAuth, async (req,resp) =>{
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = await User.findById(req.user._id).lean();
     resp.render('Profile',{
     layout: 'profile',
     title: 'Profile',
-    user
+    user,
+    lastLogin: user.lastLogin,
+    lastActivity: user.lastActivity
     });
 });
 
-router.get('/EditProfile', async (req,resp) =>{
-    const user = await User.findById(req.session.userId).lean();
-   
+router.get('/EditProfile', requireAuth, async (req,resp) =>{
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     resp.render('EditProfile',{
         layout: 'editprofile',
         title: 'Edit Profile',
-        user,
+        user: req.user,
     });
 });
 
-router.post('/Profile', async (req,resp) =>{
-    const user = await User.findById(req.session.userId).lean();
+router.post('/Profile', requireAuth, async (req,resp) =>{
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = await User.findById(req.user._id).lean();
     let img = '';
     if (user.profilepic && user.profilepic.data) {
         img = `data:${user.profilepic.contentType};base64,${user.profilepic.data.toString('base64')}`;
@@ -182,10 +221,24 @@ router.post('/Profile', async (req,resp) =>{
     });
 });
 
-router.post('/updateProfile', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean();
+router.post('/updateProfile', requireAuth, async (req, resp) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const { fname, lname, id, email, description1, profilepic} = req.body;
-    const userId = user._id;
+    const userId = req.user._id;
+    
+    // Validate input lengths
+    if (fname && fname.length > 50) {
+        logger.logValidation('fname', fname, 'Exceeds maximum length', req.user.id);
+        return res.redirect('/EditProfile?error=validation&details=' + encodeURIComponent('First name must be 50 characters or less'));
+    }
+    if (lname && lname.length > 50) {
+        logger.logValidation('lname', lname, 'Exceeds maximum length', req.user.id);
+        return res.redirect('/EditProfile?error=validation&details=' + encodeURIComponent('Last name must be 50 characters or less'));
+    }
+    if (description1 && description1.length > 500) {
+        logger.logValidation('description1', description1, 'Exceeds maximum length', req.user.id);
+        return res.redirect('/EditProfile?error=validation&details=' + encodeURIComponent('Description must be 500 characters or less'));
+    }
 
     let updateFields = {};
 
@@ -213,20 +266,53 @@ router.post('/updateProfile', async (req, resp) => {
 });
 
 router.get('/LoginPage', function(req, resp){
-    resp.redirect('/');
-});
-
-router.get('/AboutUs', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean(); 
-    resp.render('AboutUs', {
-        layout: 'helpdesk',
-        title: 'About Us',
-        user
+    const error = req.query.error;
+    const errorDetails = req.query.details;
+    const success = req.query.success;
+    resp.render('LoginPage',{
+        layout: 'login',
+        title: 'Lab Reservation',
+        error: error,
+        errorDetails: errorDetails,
+        success: success
     });
 });
 
-router.post('/selectlab', async (req, res) => {
-    const userId = req.session.userId;
+// Forgot Password Routes
+router.get('/forgotpassword', function(req, resp) {
+    resp.render('forgotPassword', {
+        layout: false,
+        title: 'Forgot Password',
+        message: null,
+        messageType: null
+    });
+});
+
+router.post('/forgotpassword', async function(req, resp) {
+    await forgotPassword.handleForgotPassword(req, resp);
+});
+
+// Reset Password Routes
+router.get('/reset-password', async function(req, resp) {
+    await forgotPassword.handleResetPassword(req, resp);
+});
+
+router.post('/reset-password', async function(req, resp) {
+    await forgotPassword.handleResetPassword(req, resp);
+});
+
+router.get('/AboutUs', requireAuth, async (req, resp) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    resp.render('AboutUs', {
+        layout: 'helpdesk',
+        title: 'About Us',
+        user: req.user
+    });
+});
+
+router.post('/selectlab', requireAuth, async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const userId = req.user._id;
     const reqLabName = req.body.labName;
     const selectedDate = req.body.selectedDate;
     const selectedTime = req.body.time;
@@ -282,42 +368,41 @@ router.post('/selectlab', async (req, res) => {
     } catch(error) { errorFn(error);}
 });
 
-router.post('/404', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean();
+router.post('/404', optionalAuth, async (req, resp) => {
     resp.render('404', {
         layout: 'editprofile',
         title: '404',
-        user
+        user: req.user || null
     });
 });
 
-router.get('/404', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean();
+router.get('/404', optionalAuth, async (req, resp) => {
     resp.render('404', {
         layout: 'editprofile',
         title: '404',
-        user
+        user: req.user || null
     });
 });
 
-router.post('/reserve', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean();
+router.post('/reserve', requireAuth, async (req, resp) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const SlotID = req.body.SlotID;
     
     resp.render('confirm-reservation', { 
         layout: 'reservation',
         SlotID, 
-        user,
+        user: req.user,
     });
 });
 
-router.post('/confirm-reservation', async (req, res) => {
+router.post('/confirm-reservation', requireAuth, async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const SlotID = req.body.SlotID;
-    const userId = req.session.userId;
+    const userId = req.user._id;
     const reqLabName = req.session.selectedLabName;
     const selectedDate = req.session.date;
     const selectedTime = req.session.time;
-    const user = await User.findById(userId).lean();
+    const user = req.user;
     const labs = await Laboratory.find({}).lean();
     const reserveDates = await reserve.getNextFiveWeekdays();
     
@@ -376,7 +461,8 @@ router.post('/confirm-reservation', async (req, res) => {
 });
 
 
-router.post('/deleteReserve', async (req, res) => {
+router.post('/deleteReserve', requireAuth, async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const { labName, SlotID, date, time } = req.body;
 
     try {
@@ -423,7 +509,8 @@ router.post('/deleteReserve', async (req, res) => {
     }
 });
 
-router.post('/editReserve', async (req, res) => {
+router.post('/editReserve', requireAuth, async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const { labName, SlotID, date, time } = req.body;
     try {
         await Laboratory.findOneAndUpdate(

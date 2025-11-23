@@ -11,6 +11,14 @@
             <div class="menu-item" id="helpdesk">
                 <a href="/admin/queries"><p>Queries</p></a>
             </div>
+            <div class="menu-item" id="users">
+                <a href="/admin/users"><p>User Management</p></a>
+            </div>
+            {{#if (eq user.accountType "ADMINISTRATOR")}}
+            <div class="menu-item" id="logs">
+                <a href="/admin/logs"><p>Security Logs</p></a>
+            </div>
+            {{/if}}
             <div class="menu-item" id="logout">
                 <a href="/logout"><p>Log Out</p></a>
             </div>

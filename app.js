@@ -26,6 +26,19 @@ app.set("views", __dirname + "/views");
 app.set('view engine', 'hbs');
 app.engine('hbs', handlebars.engine({
     extname: 'hbs',
+    helpers: {
+        formatDate: function(date) {
+            if (!date) return 'Never';
+            const d = new Date(date);
+            return d.toLocaleString();
+        },
+        eq: function(a, b) {
+            return a === b;
+        },
+        json: function(context) {
+            return JSON.stringify(context, null, 2);
+        }
+    }
 }));
 
 const port = process.env.PORT || 3000;
@@ -49,3 +62,24 @@ const samples = require('./models/sampleData.js');
 // samples.createSampleLabs();
 app.use('/', indexRouter);
 app.use('/admin', adminRouter);
+
+// 404 handler - must be after all routes
+app.use((req, res) => {
+    res.status(404);
+    res.render('404', {
+        layout: 'editprofile',
+        title: '404 - Not Found',
+        user: req.user || null
+    });
+});
+
+// Error handling middleware - Hide system details (must be last)
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    // Don't expose stack traces or system details to users
+    res.status(err.status || 500);
+    res.render('500', {
+        layout: false,
+        title: 'Server Error'
+    });
+});

@@ -1,0 +1,20 @@
+{"timestamp":"2025-11-23T14:09:30.703Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"aaaa","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-23T14:10:00.425Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"123123","success":true,"accountType":"STUDENT","previousLastLogin":null}
+{"timestamp":"2025-11-23T14:12:01.487Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMIN","previousLastLogin":null}
+{"timestamp":"2025-11-23T14:13:54.715Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"123123","success":true,"accountType":"STUDENT","previousLastLogin":"2025-11-23T14:10:00.380Z"}
+{"timestamp":"2025-11-23T14:17:11.165Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Invalid password","failedAttempts":1}
+{"timestamp":"2025-11-23T14:17:16.233Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Invalid password","failedAttempts":2}
+{"timestamp":"2025-11-23T14:17:21.662Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Invalid password","failedAttempts":3}
+{"timestamp":"2025-11-23T14:17:26.821Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Invalid password","failedAttempts":4}
+{"timestamp":"2025-11-23T14:17:31.838Z","level":"WARN","category":"ACCOUNT_LOCKOUT","message":"Account locked","userId":"123123","reason":"Failed attempts: 5"}
+{"timestamp":"2025-11-23T14:17:31.839Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Invalid password","failedAttempts":5,"accountLocked":true}
+{"timestamp":"2025-11-23T14:17:36.621Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Account locked","minutesLeft":30}
+{"timestamp":"2025-11-23T14:22:53.579Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_REQUEST","userId":"1231","success":true,"email":"audrinjavier06@gmail.com"}
+{"timestamp":"2025-11-23T14:23:28.115Z","level":"INFO","category":"PASSWORD_CHANGE","message":"Password change attempt","userId":"1231","success":false,"reason":"This password was recently used. Please choose a different one."}
+{"timestamp":"2025-11-23T14:30:26.965Z","level":"INFO","category":"PASSWORD_CHANGE","message":"Password change attempt","userId":"1231","success":false,"reason":"This password was recently used. Please choose a different one."}
+{"timestamp":"2025-11-23T14:30:37.311Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"Server error","error":"User validation failed: accountType: `ADMIN` is not a valid enum value for path `accountType`."}
+{"timestamp":"2025-11-23T14:32:07.876Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-23T14:12:01.452Z"}
+{"timestamp":"2025-11-23T14:34:03.171Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"123123","success":false,"reason":"Account locked","minutesLeft":14}
+{"timestamp":"2025-11-23T14:34:33.654Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-23T14:32:07.805Z"}
+{"timestamp":"2025-11-23T14:35:35.636Z","level":"INFO","category":"AUTHENTICATION","message":"USER_DELETED","userId":"admin","success":true,"deletedUserId":"1231","deletedUserEmail":"audrinjavier06@gmail.com","deletedUserRole":"STUDENT"}
+{"timestamp":"2025-11-23T14:39:53.985Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-23T14:34:33.616Z"}

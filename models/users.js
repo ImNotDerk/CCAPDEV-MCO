@@ -35,10 +35,99 @@ const UserSchema = new mongoose.Schema({
     },
     accountType:{
         type: String,
-        enum: ['STUDENT', 'ADMIN'],
+        enum: ['ADMINISTRATOR', 'ROLE_A', 'ROLE_B', 'ADMIN', 'STUDENT'], // Include old values for migration
         required: true,
-        default: 'STUDENT'
+        default: 'ROLE_B'
+    },
+    // For backward compatibility, also support old role names
+    // ADMIN -> ADMINISTRATOR, STUDENT -> ROLE_B
+    _legacyRole: {
+        type: String,
+        enum: ['STUDENT', 'ADMIN'],
+        required: false
+    },
+    lastLogin: {
+        type: Date,
+        default: null
+    },
+    lastActivity: {
+        type: Date,
+        default: null
+    },
+    passwordHistory: [{
+        password: String,
+        createdAt: { type: Date, default: Date.now }
+    }],
+    passwordCreatedAt: {
+        type: Date,
+        default: Date.now
+    },
+    failedLoginAttempts: {
+        type: Number,
+        default: 0
+    },
+    accountLockedUntil: {
+        type: Date,
+        default: null
+    },
+    passwordResetToken: {
+        type: String,
+        default: null
+    },
+    passwordResetTokenExpires: {
+        type: Date,
+        default: null
+    },
+    passwordResetAttempts: {
+        type: Number,
+        default: 0
+    },
+    lastPasswordResetRequest: {
+        type: Date,
+        default: null
     }
+});
+
+// Pre-save hook to migrate old role names to new ones
+UserSchema.pre('save', function(next) {
+    // Migrate old role names to new ones
+    if (this.accountType === 'ADMIN') {
+        this._legacyRole = 'ADMIN'; // Store original for reference
+        this.accountType = 'ADMINISTRATOR';
+    } else if (this.accountType === 'STUDENT') {
+        this._legacyRole = 'STUDENT'; // Store original for reference
+        this.accountType = 'ROLE_B';
+    }
+    next();
+});
+
+// Pre-update hook for findOneAndUpdate, updateOne, etc.
+UserSchema.pre(['findOneAndUpdate', 'updateOne', 'updateMany'], function(next) {
+    const update = this.getUpdate();
+    
+    // Handle direct accountType updates
+    if (update && update.accountType) {
+        if (update.accountType === 'ADMIN') {
+            update.accountType = 'ADMINISTRATOR';
+            update._legacyRole = 'ADMIN';
+        } else if (update.accountType === 'STUDENT') {
+            update.accountType = 'ROLE_B';
+            update._legacyRole = 'STUDENT';
+        }
+    }
+    
+    // Handle $set updates
+    if (update && update.$set && update.$set.accountType) {
+        if (update.$set.accountType === 'ADMIN') {
+            update.$set.accountType = 'ADMINISTRATOR';
+            update.$set._legacyRole = 'ADMIN';
+        } else if (update.$set.accountType === 'STUDENT') {
+            update.$set.accountType = 'ROLE_B';
+            update.$set._legacyRole = 'STUDENT';
+        }
+    }
+    
+    next();
 });
 
 module.exports = mongoose.model('User', UserSchema);

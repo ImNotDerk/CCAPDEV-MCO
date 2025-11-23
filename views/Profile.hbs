@@ -14,6 +14,12 @@
                 <div class="box" id="firstCol"><p><b>Name:</b> {{user.fname}} {{user.lname}}</p></div>
                 <div class="box" id="secondCol"><p><b>ID:</b> {{user.id}}</p></div>
                 <div class="fullRow"><p><b>Email: </b>  {{user.email}}</p></div>
+                {{#if lastLogin}}
+                <div class="fullRow"><p><b>Last Login: </b> {{lastLogin}}</p></div>
+                {{/if}}
+                {{#if lastActivity}}
+                <div class="fullRow"><p><b>Last Activity: </b> {{lastActivity}}</p></div>
+                {{/if}}
                 <div class="description1"><p><b>Description:</b></p> {{user.description1}}<br></div>
                 <div class="description2"><a href= '/EditProfile' id="Edit">Edit</a></div>
                 </form>

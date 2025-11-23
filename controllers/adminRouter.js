@@ -9,11 +9,37 @@ const reserve = require('./reservation.js');
 const reservations = require('../models/reservations.js');
 const labsController = require('./laboratory.js');
 const helpdesk = require('../models/helpDesk.js');
+const { requireAuth, requireRole } = require('../middleware/auth.js');
+const logger = require('../utils/logger');
+const fs = require('fs');
+const path = require('path');
+const userManagement = require('./adminUserManagement.js');
+
+// All admin routes require authentication
+adminRouter.use(requireAuth);
+
+// Role-based access: ADMINISTRATOR, ROLE_A, or legacy ADMIN
+function requireAdminRole(req, res, next) {
+    const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    if (['ADMINISTRATOR', 'ROLE_A'].includes(userRole) || req.user._legacyRole === 'ADMIN') {
+        return next();
+    }
+    logger.logAccessControl(req.user.id, req.path, 'Insufficient role for admin access');
+    return res.status(403).render('403', {
+        layout: 'editprofile',
+        title: 'Access Denied',
+        user: req.user,
+        message: 'You do not have permission to access this resource.'
+    });
+}
+
+// Apply role check to all admin routes
+adminRouter.use(requireAdminRole);
 
 adminRouter.get('/index', async (req, res) => {
-
     try {
-        const user = await User.findById(req.session.userId).lean();
+        await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+        const user = req.user;
         let reservations =  await Laboratory.aggregate([
             {
                 $unwind: "$reservationData", // Deconstruct the reservationData array
@@ -47,17 +73,18 @@ adminRouter.get('/index', async (req, res) => {
 });
 
 adminRouter.post('/addreservation', async (req, res) => {
-    const user = await User.findById(req.session.userId).lean();
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     res.redirect('/admin/reservation');
 });
 
 adminRouter.post('/confirm-reservation', async (req, res) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const SlotID = req.body.SlotID;
-    const userId = req.session.userId;
+    const userId = req.user._id;
     const reqLabName = req.session.selectedLabName;
     const selectedDate = req.session.date;
     const selectedTime = req.session.time;
-    const user = await User.findById(userId).lean();
+    const user = req.user;
     const labs = await Laboratory.find({}).lean();
     const reserveDates = await reserve.getNextFiveWeekdays(); 
     let newUser = req.session.newUser;
@@ -121,7 +148,8 @@ adminRouter.post('/confirm-reservation', async (req, res) => {
 });
 
 adminRouter.get('/reservation', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean();
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = req.user;
     const labs = await Laboratory.find({}).lean();
     const reserveDates = await reserve.getNextFiveWeekdays();
     resp.render('ReservationAdmin', {
@@ -134,7 +162,8 @@ adminRouter.get('/reservation', async (req, resp) => {
 })
 
 adminRouter.post('/reserve', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean();
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = req.user;
     const SlotID = req.body.SlotID;
     resp.render('confirm-reservation-admin', { 
         layout: 'reservationadmin',
@@ -240,7 +269,8 @@ adminRouter.post('/editReserve', async (req, res) => {
 });
 
 adminRouter.post('/selectlab', async (req, res) => {
-    const userId = req.session.userId;
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const userId = req.user._id;
     const reqLabName = req.body.labName;
     const selectedDate = req.body.selectedDate;
     const selectedTime = req.body.time;
@@ -277,7 +307,7 @@ adminRouter.post('/selectlab', async (req, res) => {
    
 
     
-    const user = await User.findById(userId).lean();
+    const user = req.user;
     const reserveDates = await reserve.getNextFiveWeekdays();
     req.session.selectedLabName = reqLabName;  
     try {
@@ -300,7 +330,8 @@ adminRouter.post('/selectlab', async (req, res) => {
 });
 
 adminRouter.get('/AboutUs', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean(); 
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = req.user; 
     resp.render('AboutUs', {
         layout: 'helpdesk',
         title: 'About us',
@@ -309,7 +340,8 @@ adminRouter.get('/AboutUs', async (req, resp) => {
 });
 
 adminRouter.get('/queries', async (req, resp) => {
-    const user = await User.findById(req.session.userId).lean(); 
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = req.user; 
     const queries = await helpdesk.find({}).lean();
     resp.render('queries', {
         layout: 'admin',
@@ -317,6 +349,138 @@ adminRouter.get('/queries', async (req, resp) => {
         queries,
         user
     });
+});
+
+// Admin logs view - Protected, ADMINISTRATOR only
+adminRouter.get('/logs', async (req, resp) => {
+    try {
+        const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+        
+        // Only ADMINISTRATOR can access logs
+        if (userRole !== 'ADMINISTRATOR' && req.user._legacyRole !== 'ADMIN') {
+            logger.logAccessControl(req.user.id, '/admin/logs', 'Non-administrator attempted to access logs');
+            return resp.status(403).render('403', {
+                layout: 'editprofile',
+                title: 'Access Denied',
+                user: req.user,
+                message: 'Only Administrators can access application logs.'
+            });
+        }
+        
+        await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+        
+        const LOG_DIR = path.join(__dirname, '../logs');
+        const logFiles = [];
+        
+        if (fs.existsSync(LOG_DIR)) {
+            const files = fs.readdirSync(LOG_DIR);
+            logFiles.push(...files.filter(f => f.endsWith('.log')));
+        }
+        
+        resp.render('adminLogs', {
+            layout: 'admin',
+            title: 'Security Logs',
+            user: req.user,
+            logFiles: logFiles
+        });
+    } catch (error) {
+        console.error('Error accessing logs:', error);
+        logger.logAccessControl(req.user.id, '/admin/logs', 'Error accessing logs');
+        resp.status(500).render('500', { layout: false, title: 'Server Error' });
+    }
+});
+
+adminRouter.get('/logs/:filename', async (req, resp) => {
+    try {
+        const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+        
+        // Only ADMINISTRATOR can access logs
+        if (userRole !== 'ADMINISTRATOR' && req.user._legacyRole !== 'ADMIN') {
+            logger.logAccessControl(req.user.id, `/admin/logs/${req.params.filename}`, 'Non-administrator attempted to access logs');
+            return resp.status(403).render('403', { layout: false, title: 'Access Denied' });
+        }
+        
+        await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+        
+        const LOG_DIR = path.join(__dirname, '../logs');
+        const filename = req.params.filename;
+        const filepath = path.join(LOG_DIR, filename);
+        
+        // Security: Prevent directory traversal
+        if (!filepath.startsWith(LOG_DIR) || !filename.endsWith('.log')) {
+            logger.logAccessControl(req.user.id, `/admin/logs/${filename}`, 'Invalid file access attempt');
+            return resp.status(403).render('403', { layout: false, title: 'Access Denied' });
+        }
+        
+        if (!fs.existsSync(filepath)) {
+            return resp.status(404).render('404', { layout: false, title: 'Not Found' });
+        }
+        
+        const logContent = fs.readFileSync(filepath, 'utf8');
+        const lines = logContent.split('\n').filter(l => l.trim()).map(l => {
+            try {
+                return JSON.parse(l);
+            } catch {
+                return { raw: l };
+            }
+        });
+        
+        resp.render('adminLogView', {
+            layout: 'admin',
+            title: `Log: ${filename}`,
+            user: req.user,
+            filename: filename,
+            logs: lines
+        });
+    } catch (error) {
+        console.error('Error reading log file:', error);
+        resp.status(500).render('500', { layout: false, title: 'Server Error' });
+    }
+});
+
+// User Management Routes
+// Get all users
+adminRouter.get('/users', async (req, res) => {
+    try {
+        await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+        const users = await userManagement.getAllUsers(req.user);
+        res.render('adminUsers', {
+            layout: 'admin',
+            title: 'User Management',
+            user: req.user,
+            users: users,
+            isAdministrator: (req.user.accountType === 'ADMINISTRATOR' || req.user._legacyRole === 'ADMIN'),
+            req: req // Pass req for query parameters
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).render('500', { layout: false, title: 'Server Error' });
+    }
+});
+
+// Create user (POST)
+adminRouter.post('/users/create', async (req, res) => {
+    await userManagement.createUser(req, res);
+});
+
+// Update user role (POST)
+adminRouter.post('/users/:userId/role', async (req, res) => {
+    await userManagement.updateUserRole(req, res);
+});
+
+// Show delete confirmation with re-authentication (GET)
+adminRouter.get('/users/:userId/delete', async (req, res) => {
+    await userManagement.showDeleteConfirmation(req, res);
+});
+
+// Delete user (POST) - requires re-authentication
+adminRouter.post('/users/:userId/delete', async (req, res) => {
+    await userManagement.deleteUser(req, res);
+});
+
+// Get user details (GET)
+adminRouter.get('/users/:userId', async (req, res) => {
+    await userManagement.getUserDetails(req, res);
 });
 
 module.exports = adminRouter;

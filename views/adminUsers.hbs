@@ -1,0 +1,186 @@
+<div id="main">
+    <h1>User Management</h1>
+    
+    {{#if isAdministrator}}
+    <div style="margin-bottom: 20px;">
+        <button onclick="showCreateUserForm()" class="edit-cancel-btn" style="background: #36C8A4; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+            Create New User
+        </button>
+    </div>
+
+    <!-- Create User Form (Hidden by default) -->
+    <div id="createUserForm" style="display: none; background: #f5f5f5; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+        <h3>Create New User</h3>
+        <form id="createUserFormElement" method="POST" action="/admin/users/create">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label>First Name *</label>
+                    <input type="text" name="fname" required maxlength="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Last Name *</label>
+                    <input type="text" name="lname" required maxlength="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label>ID Number *</label>
+                    <input type="text" name="id" required maxlength="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>Email *</label>
+                    <input type="email" name="email" required maxlength="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label>Password *</label>
+                    <input type="password" name="password" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <small style="color: #666;">Must meet complexity requirements</small>
+                </div>
+                <div>
+                    <label>Account Type *</label>
+                    <select name="accountType" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="ROLE_B">Role B (Customer/Employee)</option>
+                        <option value="ROLE_A">Role A (Manager)</option>
+                        <option value="ADMINISTRATOR">Administrator</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="edit-cancel-btn" style="background: #36C8A4; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+                    Create User
+                </button>
+                <button type="button" onclick="hideCreateUserForm()" class="edit-cancel-btn" style="background: #999; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+    {{/if}}
+
+    <div id="messageBox" style="display: none; padding: 15px; margin-bottom: 20px; border-radius: 5px;"></div>
+
+    {{#if req.query.success}}
+    <div style="padding: 15px; margin-bottom: 20px; border-radius: 5px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
+        {{#if req.query.message}}{{req.query.message}}{{else}}Operation completed successfully.{{/if}}
+    </div>
+    {{/if}}
+
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>ID Number</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Last Login</th>
+            {{#if isAdministrator}}
+            <th>Actions</th>
+            {{else}}
+            <th>View</th>
+            {{/if}}
+        </tr>
+
+        {{#each users}}
+        <tr>
+            <td>{{fname}} {{lname}}</td>
+            <td>{{id}}</td>
+            <td>{{email}}</td>
+            <td>
+                {{#if (eq accountType "ADMINISTRATOR")}}
+                    <span style="color: #d32f2f; font-weight: bold;">Administrator</span>
+                {{else if (eq accountType "ROLE_A")}}
+                    <span style="color: #1976d2; font-weight: bold;">Role A (Manager)</span>
+                {{else}}
+                    <span style="color: #666;">Role B (Customer/Employee)</span>
+                {{/if}}
+            </td>
+            <td>
+                {{#if lastLogin}}
+                    {{formatDate lastLogin}}
+                {{else}}
+                    Never
+                {{/if}}
+            </td>
+            <td>
+                {{#if ../isAdministrator}}
+                <div style="display: flex; gap: 5px;">
+                    <form method="POST" action="/admin/users/{{_id}}/role" style="display: inline;" onsubmit="return confirm('Change role to ' + this.accountType.options[this.accountType.selectedIndex].text + '?');">
+                        <select name="accountType" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="ROLE_B" {{#if (eq accountType "ROLE_B")}}selected{{/if}}>Role B</option>
+                            <option value="ROLE_A" {{#if (eq accountType "ROLE_A")}}selected{{/if}}>Role A</option>
+                            <option value="ADMINISTRATOR" {{#if (eq accountType "ADMINISTRATOR")}}selected{{/if}}>Administrator</option>
+                        </select>
+                        <button type="submit" style="margin-left: 5px; padding: 5px 10px; background: #00667D; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                            Update
+                        </button>
+                    </form>
+                    <a href="/admin/users/{{_id}}/delete" class="edit-cancel-btn" style="background: #d32f2f; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block;">
+                        Delete
+                    </a>
+                </div>
+                {{else}}
+                <a href="/admin/users/{{_id}}" style="color: #00667D;">View Details</a>
+                {{/if}}
+            </td>
+        </tr>
+        {{/each}}
+    </table>
+</div>
+
+<script>
+function showCreateUserForm() {
+    document.getElementById('createUserForm').style.display = 'block';
+}
+
+function hideCreateUserForm() {
+    document.getElementById('createUserForm').style.display = 'none';
+    document.getElementById('createUserFormElement').reset();
+}
+
+// Handle form submission with AJAX for better UX
+document.getElementById('createUserFormElement')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/admin/users/create', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        const messageBox = document.getElementById('messageBox');
+        
+        if (data.success) {
+            messageBox.style.display = 'block';
+            messageBox.style.background = '#d4edda';
+            messageBox.style.color = '#155724';
+            messageBox.textContent = data.message || 'User created successfully.';
+            
+            // Redirect if redirect URL provided, otherwise reload
+            if (data.redirect) {
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1500);
+            } else {
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            }
+        } else {
+            messageBox.style.display = 'block';
+            messageBox.style.background = '#f8d7da';
+            messageBox.style.color = '#721c24';
+            messageBox.textContent = data.message || 'An error occurred';
+        }
+    } catch (error) {
+        const messageBox = document.getElementById('messageBox');
+        messageBox.style.display = 'block';
+        messageBox.style.background = '#f8d7da';
+        messageBox.style.color = '#721c24';
+        messageBox.textContent = 'An error occurred while creating the user.';
+    }
+});
+</script>
+

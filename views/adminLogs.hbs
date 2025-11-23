@@ -1,0 +1,30 @@
+<div id="main">
+    <h1>Security Logs</h1>
+    <p style="color: #666; margin-bottom: 20px;">
+        View application security logs. Only Administrators have access to this page.
+    </p>
+
+    {{#if logFiles}}
+    <div style="margin-bottom: 20px;">
+        <h2>Available Log Files</h2>
+        <ul style="list-style: none; padding: 0;">
+            {{#each logFiles}}
+            <li style="margin-bottom: 10px;">
+                <a href="/admin/logs/{{this}}" style="color: #00667D; text-decoration: none; padding: 8px 15px; background: #f5f5f5; border-radius: 5px; display: inline-block;">
+                    📄 {{this}}
+                </a>
+            </li>
+            {{/each}}
+        </ul>
+    </div>
+    {{else}}
+    <div style="padding: 20px; background: #f5f5f5; border-radius: 5px; margin-bottom: 20px;">
+        <p>No log files found.</p>
+    </div>
+    {{/if}}
+
+    <div style="margin-top: 30px;">
+        <a href="/admin/index" style="color: #00667D; text-decoration: none;">← Back to Admin Home</a>
+    </div>
+</div>
+

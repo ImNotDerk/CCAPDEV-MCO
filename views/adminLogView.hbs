@@ -1,0 +1,61 @@
+<div id="main">
+    <h1>Log File: {{filename}}</h1>
+    <div style="margin-bottom: 20px;">
+        <a href="/admin/logs" style="color: #00667D; text-decoration: none;">← Back to Log Files</a>
+    </div>
+
+    {{#if logs}}
+    <div style="background: #f5f5f5; padding: 20px; border-radius: 5px; max-height: 600px; overflow-y: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #00667D; color: white;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Timestamp</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Level</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Category</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Message</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each logs}}
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        {{#if this.timestamp}}
+                            {{formatDate this.timestamp}}
+                        {{else}}
+                            N/A
+                        {{/if}}
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <span style="
+                            padding: 3px 8px;
+                            border-radius: 3px;
+                            font-size: 12px;
+                            font-weight: bold;
+                            {{#if (eq this.level "WARN")}}background: #ff9800; color: white;{{/if}}
+                            {{#if (eq this.level "ERROR")}}background: #f44336; color: white;{{/if}}
+                            {{#if (eq this.level "INFO")}}background: #2196f3; color: white;{{/if}}
+                        ">
+                            {{this.level}}
+                        </span>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{{this.category}}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{{this.message}}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <details>
+                            <summary style="cursor: pointer; color: #00667D;">View Details</summary>
+                            <pre style="background: white; padding: 10px; margin-top: 5px; border-radius: 3px; font-size: 12px; overflow-x: auto;">{{json this}}</pre>
+                        </details>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div style="padding: 20px; background: #f5f5f5; border-radius: 5px;">
+        <p>No log entries found in this file.</p>
+    </div>
+    {{/if}}
+</div>
+

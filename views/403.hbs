@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>403 - Access Denied</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: linear-gradient(45deg, #36C8A4, #00667D);
+            color: white;
+        }
+        .error-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 10px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 72px;
+            margin: 0;
+        }
+        p {
+            font-size: 18px;
+            margin: 20px 0;
+        }
+        a {
+            color: white;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>403</h1>
+        <h2>Access Denied</h2>
+        <p>{{#if message}}{{message}}{{else}}You do not have permission to access this resource.{{/if}}</p>
+        <p><a href="/home">Return to Home</a></p>
+    </div>
+</body>
+</html>
+

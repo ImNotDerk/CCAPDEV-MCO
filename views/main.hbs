@@ -1,5 +1,11 @@
 <div id="main">
     <h1>Your Reservations</h1>
+    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+        Last login: {{user.lastLoginFormatted}}
+        {{#if user.lastActivityFormatted}}
+        | Last activity: {{user.lastActivityFormatted}}
+        {{/if}}
+    </p>
     <table>
         <tr>
             {{!-- Lab column --}}

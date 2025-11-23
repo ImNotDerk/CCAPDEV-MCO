@@ -185,3 +185,207 @@ h2 {
         bottom: 100%;
     }
 }
+
+/* Error Popup Styles */
+.error-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.error-popup-overlay.show {
+    opacity: 1;
+}
+
+.error-popup-content {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 10px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+    position: relative;
+    transform: scale(0.7);
+    transition: transform 0.3s ease;
+}
+
+.error-popup-overlay.show .error-popup-content {
+    transform: scale(1);
+}
+
+.error-popup-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #999;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.error-popup-close:hover {
+    color: #00667D;
+}
+
+.error-popup-message {
+    margin: 0;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.success-popup-content {
+    border: 2px solid #36C8A4;
+}
+
+.success-popup-content .error-popup-message {
+    color: #36C8A4;
+}
+
+/* Password Requirements Styles */
+.password-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.password-container input {
+    width: 100%;
+    padding: 10px 0;
+    font-size: 13px;
+    color: black;
+    margin-bottom: 10px;
+    border: none;
+    border-bottom: 1px solid black;
+    outline: none;
+    background: transparent;
+}
+
+.password-requirements {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+    font-size: 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    display: none;
+}
+
+.password-container input:focus ~ .password-requirements,
+.password-requirements.show {
+    display: block;
+}
+
+.requirements-title {
+    margin: 0 0 10px 0;
+    font-weight: bold;
+    color: #00667D;
+    font-size: 13px;
+}
+
+.requirements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.requirement-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    color: #666;
+    font-size: 12px;
+    transition: color 0.2s ease;
+}
+
+.requirement-item.requirement-met {
+    color: #36C8A4;
+}
+
+.req-icon {
+    display: inline-block;
+    width: 20px;
+    margin-right: 8px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.password-match-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 30px;
+}
+
+.password-match-container input {
+    width: 100%;
+    padding: 10px 0;
+    font-size: 13px;
+    color: black;
+    margin-bottom: 5px;
+    border: none;
+    border-bottom: 1px solid black;
+    outline: none;
+    background: transparent;
+}
+
+.password-match-message {
+    font-size: 12px;
+    margin-top: 5px;
+    padding: 5px 0;
+    transition: color 0.2s ease;
+}
+
+.password-match-message.match {
+    color: #36C8A4;
+    font-weight: bold;
+}
+
+.password-match-message.match-error {
+    color: #ff4444;
+    font-weight: bold;
+}
+
+/* Message box styles for forgot password */
+.message-box {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.message-box.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message-box.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message-box.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
