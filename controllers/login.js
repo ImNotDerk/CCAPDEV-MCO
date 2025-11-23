@@ -72,9 +72,11 @@ async function handleLogin(req, res) {
                     // Support both new and legacy role names
                     const userRole = user.accountType || (user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
                     
-                    if(userRole === "ADMINISTRATOR" || userRole === "ADMIN") {
+                    // ADMINISTRATOR and ROLE_A should go to admin view
+                    if(userRole === "ADMINISTRATOR" || userRole === "ADMIN" || userRole === "ROLE_A") {
                         return res.redirect('/admin/index');
                     }
+                    // ROLE_B (regular users) go to home
                     return res.redirect('/home');
             });
         } else {

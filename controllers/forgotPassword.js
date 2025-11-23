@@ -70,115 +70,61 @@ async function checkPasswordReuse(userId, newPassword) {
 }
 
 /**
- * Handle forgot password request
+ * Handle forgot password request - Step 1: Email verification
  * Security: Generic response - don't reveal if email exists
  */
 async function handleForgotPassword(req, res) {
     try {
-        const { email } = req.body;
+        const { email, step } = req.body;
 
-        // Validate email format
-        if (!email || typeof email !== 'string') {
-            logger.logPasswordReset('PASSWORD_RESET_REQUEST', 'anonymous', false, { reason: 'Invalid email format' });
-            return res.render('forgotPassword', {
-                layout: 'login',
-                title: 'Forgot Password',
-                message: 'If an account with that email exists, a password reset link has been sent.',
-                messageType: 'info'
-            });
-        }
+        // Step 2: Show security question if email provided (from query or body)
+        const emailToVerify = email || req.query.email;
+        const stepToProcess = step || req.query.step;
+        
+        if (stepToProcess === 'verify-email' && emailToVerify) {
+            const normalizedEmail = emailToVerify.toLowerCase().trim();
+            const user = await User.findOne({ email: normalizedEmail });
 
-        // Validate email length
-        if (email.length > 100) {
-            logger.logValidation('email', email, 'Exceeds maximum length', 'anonymous');
-            return res.render('forgotPassword', {
-                layout: 'login',
-                title: 'Forgot Password',
-                message: 'If an account with that email exists, a password reset link has been sent.',
-                messageType: 'info'
-            });
-        }
-
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            logger.logPasswordReset('PASSWORD_RESET_REQUEST', email, false, { reason: 'Invalid email format' });
-            return res.render('forgotPassword', {
-                layout: 'login',
-                title: 'Forgot Password',
-                message: 'If an account with that email exists, a password reset link has been sent.',
-                messageType: 'info'
-            });
-        }
-
-        const user = await User.findOne({ email: email.toLowerCase().trim() });
-
-        // Generic response - don't reveal if user exists
-        // Always show success message for security
-        const genericMessage = 'If an account with that email exists, a password reset link has been sent. Please check your email.';
-
-        if (!user) {
-            // Log but don't reveal to user
-            logger.logPasswordReset('PASSWORD_RESET_REQUEST', email, false, { reason: 'Email not found' });
-            return res.render('forgotPassword', {
-                layout: 'login',
-                title: 'Forgot Password',
-                message: genericMessage,
-                messageType: 'info'
-            });
-        }
-
-        // Rate limiting - check if too many requests
-        const now = new Date();
-        if (user.lastPasswordResetRequest) {
-            const timeSinceLastRequest = (now - user.lastPasswordResetRequest) / (1000 * 60 * 60); // hours
-            if (timeSinceLastRequest < 1 && user.passwordResetAttempts >= MAX_RESET_REQUESTS_PER_HOUR) {
-                logger.logPasswordReset('PASSWORD_RESET_REQUEST', user.id, false, { reason: 'Rate limit exceeded' });
+            // Generic message even if user doesn't exist (security)
+            if (!user || !user.securityQuestion) {
+                logger.logPasswordReset('PASSWORD_RESET_REQUEST', user ? user.id : 'unknown', false, { 
+                    reason: user ? 'No security question set' : 'User not found' 
+                });
                 return res.render('forgotPassword', {
                     layout: 'login',
                     title: 'Forgot Password',
-                    message: genericMessage,
+                    message: 'If an account with that email exists and has a security question set, you will be able to reset your password.',
                     messageType: 'info'
                 });
             }
-            
-            // Reset counter if more than 1 hour has passed
-            if (timeSinceLastRequest >= 1) {
-                user.passwordResetAttempts = 0;
-            }
+
+            // Show security question
+            return res.render('forgotPasswordSecurity', {
+                layout: 'login',
+                title: 'Answer Security Question',
+                email: normalizedEmail,
+                securityQuestion: user.securityQuestion,
+                error: null
+            });
         }
 
-        // Generate secure reset token
-        const resetToken = generateResetToken();
-        const tokenExpiry = new Date();
-        tokenExpiry.setHours(tokenExpiry.getHours() + TOKEN_EXPIRY_HOURS);
+        // Step 1: Initial email entry
+        if (!email || typeof email !== 'string') {
+            return res.render('forgotPassword', {
+                layout: 'login',
+                title: 'Forgot Password',
+                message: null,
+                messageType: null
+            });
+        }
 
-        // Store token and expiry
-        user.passwordResetToken = resetToken;
-        user.passwordResetTokenExpires = tokenExpiry;
-        user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1;
-        user.lastPasswordResetRequest = now;
-        await user.save();
-
-        // Log successful token generation
-        logger.logPasswordReset('PASSWORD_RESET_REQUEST', user.id, true, { email: user.email });
-
-        // In production, send email with reset link
-        // For development, log the reset link
-        const resetLink = `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`;
-        console.log(`\n=== PASSWORD RESET LINK (DEVELOPMENT ONLY) ===`);
-        console.log(`For user: ${user.email}`);
-        console.log(`Reset link: ${resetLink}`);
-        console.log(`Token expires: ${tokenExpiry.toLocaleString()}`);
-        console.log(`===============================================\n`);
-
+        // This code path should not be reached - step should be 'verify-email'
+        // But handle it gracefully
         return res.render('forgotPassword', {
             layout: 'login',
             title: 'Forgot Password',
-            message: genericMessage,
-            messageType: 'success',
-            // Only show link in development
-            devResetLink: process.env.NODE_ENV !== 'production' ? resetLink : null
+            message: null,
+            messageType: null
         });
     } catch (error) {
         console.error('Forgot password error:', error);
@@ -196,63 +142,129 @@ async function handleForgotPassword(req, res) {
 }
 
 /**
- * Handle password reset with token
+ * Handle security answer verification for forgot password
+ */
+async function handleSecurityAnswerVerification(req, res) {
+    try {
+        const { email, securityQuestion, securityAnswer } = req.body;
+
+        if (!email || !securityQuestion || !securityAnswer) {
+            return res.render('forgotPasswordSecurity', {
+                layout: 'login',
+                title: 'Answer Security Question',
+                email: email || '',
+                securityQuestion: securityQuestion || '',
+                error: 'All fields are required.'
+            });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await User.findOne({ email: normalizedEmail });
+
+        if (!user || !user.securityQuestion || !user.securityAnswer) {
+            logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', user ? user.id : 'unknown', false, { 
+                reason: 'User not found or security question not set' 
+            });
+            return res.render('forgotPasswordSecurity', {
+                layout: 'login',
+                title: 'Answer Security Question',
+                email: normalizedEmail,
+                securityQuestion: securityQuestion,
+                error: 'Invalid request. Please start over.'
+            });
+        }
+
+        // Verify security question matches
+        if (user.securityQuestion !== securityQuestion) {
+            logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', user.id, false, { 
+                reason: 'Security question mismatch' 
+            });
+            return res.render('forgotPasswordSecurity', {
+                layout: 'login',
+                title: 'Answer Security Question',
+                email: normalizedEmail,
+                securityQuestion: securityQuestion,
+                error: 'Invalid request. Please start over.'
+            });
+        }
+
+        // Verify security answer
+        const normalizedAnswer = securityAnswer.trim().toLowerCase();
+        const isMatch = await bcrypt.compare(normalizedAnswer, user.securityAnswer);
+
+        if (!isMatch) {
+            logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', user.id, false, { 
+                reason: 'Incorrect security answer' 
+            });
+            return res.render('forgotPasswordSecurity', {
+                layout: 'login',
+                title: 'Answer Security Question',
+                email: normalizedEmail,
+                securityQuestion: securityQuestion,
+                error: 'Incorrect security answer. Please try again.'
+            });
+        }
+
+        // Security answer is correct - show password reset form
+        logger.logPasswordReset('PASSWORD_RESET_VERIFIED', user.id, true);
+        
+        return res.render('resetPassword', {
+            layout: 'login',
+            title: 'Reset Password',
+            email: normalizedEmail,
+            token: null, // Not using token anymore
+            error: null
+        });
+    } catch (error) {
+        console.error('Security answer verification error:', error);
+        logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', 'unknown', false, { 
+            reason: 'Server error',
+            error: error.message 
+        });
+        return res.render('forgotPasswordSecurity', {
+            layout: 'login',
+            title: 'Answer Security Question',
+            email: req.body.email || '',
+            securityQuestion: req.body.securityQuestion || '',
+            error: 'An error occurred. Please try again.'
+        });
+    }
+}
+
+/**
+ * Handle password reset (updated to use email instead of token)
  */
 async function handleResetPassword(req, res) {
     try {
-        const { token } = req.query;
-        const { password, confirmPassword } = req.body;
+        const { email, password, confirmPassword } = req.body;
 
-        // If token provided, show reset form
-        if (req.method === 'GET' && token) {
-            const user = await User.findOne({ 
-                passwordResetToken: token,
-                passwordResetTokenExpires: { $gt: new Date() }
-            });
-
-            if (!user) {
-                logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', 'unknown', false, { reason: 'Invalid or expired token' });
-                return res.render('resetPassword', {
-                    layout: 'login',
-                    title: 'Reset Password',
-                    error: 'Invalid or expired reset token. Please request a new password reset.',
-                    token: null
-                });
-            }
-
-            return res.render('resetPassword', {
-                layout: 'login',
-                title: 'Reset Password',
-                token: token,
-                error: null
-            });
+        // If GET request, redirect to forgot password
+        if (req.method === 'GET') {
+            return res.redirect('/forgotpassword');
         }
 
         // Handle POST - actual password reset
         if (req.method === 'POST') {
-            const resetToken = req.body.token || token;
-
-            if (!resetToken) {
+            if (!email) {
                 return res.render('resetPassword', {
                     layout: 'login',
                     title: 'Reset Password',
-                    error: 'Reset token is required.',
+                    error: 'Email is required.',
+                    email: null,
                     token: null
                 });
             }
 
-            // Find user with valid token
-            const user = await User.findOne({ 
-                passwordResetToken: resetToken,
-                passwordResetTokenExpires: { $gt: new Date() }
-            });
+            const normalizedEmail = email.toLowerCase().trim();
+            const user = await User.findOne({ email: normalizedEmail });
 
-            if (!user) {
-                logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', 'unknown', false, { reason: 'Invalid or expired token' });
+            if (!user || !user.securityQuestion) {
+                logger.logPasswordReset('PASSWORD_RESET_ATTEMPT', 'unknown', false, { reason: 'User not found' });
                 return res.render('resetPassword', {
                     layout: 'login',
                     title: 'Reset Password',
-                    error: 'Invalid or expired reset token. Please request a new password reset.',
+                    error: 'Invalid request. Please start over.',
+                    email: null,
                     token: null
                 });
             }
@@ -263,7 +275,8 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: 'Both password fields are required.',
-                    token: resetToken
+                    email: normalizedEmail,
+                    token: null
                 });
             }
 
@@ -274,7 +287,8 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: 'Passwords do not match.',
-                    token: resetToken
+                    email: normalizedEmail,
+                    token: null
                 });
             }
 
@@ -287,7 +301,8 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: errorMessage,
-                    token: resetToken
+                    email: normalizedEmail,
+                    token: null
                 });
             }
 
@@ -299,7 +314,8 @@ async function handleResetPassword(req, res) {
                     layout: 'login',
                     title: 'Reset Password',
                     error: reuseCheck.reason,
-                    token: resetToken
+                    email: normalizedEmail,
+                    token: null
                 });
             }
 
@@ -319,8 +335,6 @@ async function handleResetPassword(req, res) {
             user.password = hash;
             user.passwordHistory = passwordHistory;
             user.passwordCreatedAt = new Date();
-            user.passwordResetToken = null; // Clear token after use
-            user.passwordResetTokenExpires = null;
             user.failedLoginAttempts = 0; // Reset failed attempts
             user.accountLockedUntil = null; // Clear lockout
             await user.save();
@@ -336,7 +350,6 @@ async function handleResetPassword(req, res) {
             });
         }
 
-        // No token provided
         return res.redirect('/forgotpassword');
     } catch (error) {
         console.error('Reset password error:', error);
@@ -348,6 +361,7 @@ async function handleResetPassword(req, res) {
             layout: 'login',
             title: 'Reset Password',
             error: 'An error occurred. Please try again.',
+            email: null,
             token: null
         });
     }
@@ -355,6 +369,7 @@ async function handleResetPassword(req, res) {
 
 module.exports = {
     handleForgotPassword,
-    handleResetPassword
+    handleResetPassword,
+    handleSecurityAnswerVerification
 };
 

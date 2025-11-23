@@ -188,8 +188,14 @@ router.post('/home', requireAuth, async (req, res) => {
 router.get('/Profile', requireAuth, async (req,resp) =>{
     await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
     const user = await User.findById(req.user._id).lean();
+    
+    // Determine layout based on user role
+    const userRole = user.accountType || (user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || user._legacyRole === 'ADMIN';
+    const layout = isAdmin ? 'admin' : 'profile';
+    
     resp.render('Profile',{
-    layout: 'profile',
+    layout: layout,
     title: 'Profile',
     user,
     lastLogin: user.lastLogin,
@@ -199,8 +205,14 @@ router.get('/Profile', requireAuth, async (req,resp) =>{
 
 router.get('/EditProfile', requireAuth, async (req,resp) =>{
     await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    
+    // Determine layout based on user role
+    const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || req.user._legacyRole === 'ADMIN';
+    const layout = isAdmin ? 'admin' : 'editprofile';
+    
     resp.render('EditProfile',{
-        layout: 'editprofile',
+        layout: layout,
         title: 'Edit Profile',
         user: req.user,
     });
@@ -213,8 +225,14 @@ router.post('/Profile', requireAuth, async (req,resp) =>{
     if (user.profilepic && user.profilepic.data) {
         img = `data:${user.profilepic.contentType};base64,${user.profilepic.data.toString('base64')}`;
     }
+    
+    // Determine layout based on user role
+    const userRole = user.accountType || (user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || user._legacyRole === 'ADMIN';
+    const layout = isAdmin ? 'admin' : 'profile';
+    
     resp.render('Profile',{
-    layout: 'profile',
+    layout: layout,
     title: 'Profile',
     user,
     img
@@ -288,8 +306,22 @@ router.get('/forgotpassword', function(req, resp) {
     });
 });
 
+router.get('/forgotpassword', function(req, resp) {
+    resp.render('forgotPassword', {
+        layout: 'login',
+        title: 'Forgot Password',
+        message: null,
+        messageType: null
+    });
+});
+
 router.post('/forgotpassword', async function(req, resp) {
     await forgotPassword.handleForgotPassword(req, resp);
+});
+
+// Forgot password - verify security answer
+router.post('/forgotpassword-verify', async function(req, resp) {
+    await forgotPassword.handleSecurityAnswerVerification(req, resp);
 });
 
 // Reset Password Routes
@@ -299,6 +331,43 @@ router.get('/reset-password', async function(req, resp) {
 
 router.post('/reset-password', async function(req, resp) {
     await forgotPassword.handleResetPassword(req, resp);
+});
+
+// Change Password Routes
+const passwordChange = require('./passwordChange.js');
+
+router.get('/change-password', requireAuth, async (req, resp) => {
+    await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
+    const user = await User.findById(req.user._id).lean();
+    
+    // Determine layout based on user role
+    const userRole = user.accountType || (user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || user._legacyRole === 'ADMIN';
+    const layout = isAdmin ? 'admin' : 'profile';
+    
+    // Check if user has security question set
+    if (!user.securityQuestion || !user.securityAnswer) {
+        return resp.render('changePassword', {
+            layout: layout,
+            title: 'Change Password',
+            user: user,
+            error: 'Security question not set',
+            details: 'Please contact administrator to set up your security question.'
+        });
+    }
+    
+    resp.render('changePassword', {
+        layout: layout,
+        title: 'Change Password',
+        user: user,
+        error: req.query.error ? decodeURIComponent(req.query.error) : null,
+        details: req.query.details ? decodeURIComponent(req.query.details) : null,
+        success: req.query.success ? decodeURIComponent(req.query.success) : null
+    });
+});
+
+router.post('/change-password', requireAuth, async (req, resp) => {
+    await passwordChange.handlePasswordChange(req, resp);
 });
 
 router.get('/AboutUs', requireAuth, async (req, resp) => {
@@ -369,16 +438,32 @@ router.post('/selectlab', requireAuth, async (req, res) => {
 });
 
 router.post('/404', optionalAuth, async (req, resp) => {
+    // Determine layout based on user role if user is logged in
+    let layout = 'editprofile';
+    if (req.user) {
+        const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+        const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || req.user._legacyRole === 'ADMIN';
+        layout = isAdmin ? 'admin' : 'editprofile';
+    }
+    
     resp.render('404', {
-        layout: 'editprofile',
+        layout: layout,
         title: '404',
         user: req.user || null
     });
 });
 
 router.get('/404', optionalAuth, async (req, resp) => {
+    // Determine layout based on user role if user is logged in
+    let layout = 'editprofile';
+    if (req.user) {
+        const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+        const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || req.user._legacyRole === 'ADMIN';
+        layout = isAdmin ? 'admin' : 'editprofile';
+    }
+    
     resp.render('404', {
-        layout: 'editprofile',
+        layout: layout,
         title: '404',
         user: req.user || null
     });
@@ -429,7 +514,12 @@ router.post('/confirm-reservation', requireAuth, async (req, res) => {
                 },
                 { 
                     arrayFilters: [
-                        { "inner.SlotID": SlotID, "inner.date": selectedDate, "inner.time": selectedTime, "inner.isOccupied": false },
+                        { 
+                            "inner.SlotID": typeof SlotID === 'string' ? parseInt(SlotID, 10) : SlotID, 
+                            "inner.date": String(selectedDate).trim(), 
+                            "inner.time": String(selectedTime).trim(), 
+                            "inner.isOccupied": false 
+                        },
                     ],
                     new: true, 
                 }

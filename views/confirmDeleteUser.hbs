@@ -83,7 +83,19 @@
 document.getElementById('deleteUserForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const formData = new FormData(this);
+    const passwordField = document.getElementById('password');
+    const password = passwordField.value;
+    
+    if (!password || password.trim() === '') {
+        const messageBox = document.getElementById('messageBox');
+        messageBox.style.display = 'block';
+        messageBox.style.background = '#f8d7da';
+        messageBox.style.color = '#721c24';
+        messageBox.style.border = '1px solid #f5c6cb';
+        messageBox.textContent = 'Please enter your password.';
+        return;
+    }
+    
     const messageBox = document.getElementById('messageBox');
     const submitButton = this.querySelector('button[type="submit"]');
     
@@ -92,13 +104,36 @@ document.getElementById('deleteUserForm').addEventListener('submit', async funct
     submitButton.textContent = 'Processing...';
     messageBox.style.display = 'none';
     
+    // Use URLSearchParams to send as application/x-www-form-urlencoded
+    const formData = new URLSearchParams();
+    formData.append('password', password);
+    
     try {
         const response = await fetch(this.action, {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
             body: formData
         });
         
-        const data = await response.json();
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // If not JSON, might be HTML error page
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Unexpected response format');
+        }
+        
+        // Check response status after parsing JSON
+        if (!response.ok) {
+            throw new Error(data.message || data.error || `Server error: ${response.status}`);
+        }
         
         if (data.success) {
             messageBox.style.display = 'block';
@@ -129,14 +164,18 @@ document.getElementById('deleteUserForm').addEventListener('submit', async funct
             }
         }
     } catch (error) {
+        console.error('Delete user error:', error);
         messageBox.style.display = 'block';
         messageBox.style.background = '#f8d7da';
         messageBox.style.color = '#721c24';
         messageBox.style.border = '1px solid #f5c6cb';
-        messageBox.textContent = 'An error occurred. Please try again.';
+        messageBox.textContent = error.message || 'An error occurred. Please try again.';
         
         submitButton.disabled = false;
         submitButton.textContent = 'Confirm Deletion';
+        
+        // Clear password field on error
+        document.getElementById('password').value = '';
     }
 });
 </script>

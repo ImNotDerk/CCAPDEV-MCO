@@ -141,16 +141,42 @@ function hideCreateUserForm() {
 // Handle form submission with AJAX for better UX
 document.getElementById('createUserFormElement')?.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const formData = new FormData(this);
+    
+    // Get form values
+    const formData = new URLSearchParams();
+    formData.append('fname', this.fname.value);
+    formData.append('lname', this.lname.value);
+    formData.append('id', this.id.value);
+    formData.append('email', this.email.value);
+    formData.append('password', this.password.value);
+    formData.append('accountType', this.accountType.value);
+    
+    const messageBox = document.getElementById('messageBox');
+    const submitButton = this.querySelector('button[type="submit"]');
+    
+    // Disable button during request
+    submitButton.disabled = true;
+    submitButton.textContent = 'Creating...';
+    messageBox.style.display = 'none';
     
     try {
         const response = await fetch('/admin/users/create', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
             body: formData
         });
         
+        // Check response status
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ 
+                message: `Server error: ${response.status}` 
+            }));
+            throw new Error(errorData.message || errorData.error || 'An error occurred');
+        }
+        
         const data = await response.json();
-        const messageBox = document.getElementById('messageBox');
         
         if (data.success) {
             messageBox.style.display = 'block';
@@ -172,14 +198,18 @@ document.getElementById('createUserFormElement')?.addEventListener('submit', asy
             messageBox.style.display = 'block';
             messageBox.style.background = '#f8d7da';
             messageBox.style.color = '#721c24';
-            messageBox.textContent = data.message || 'An error occurred';
+            messageBox.textContent = data.message || data.error || 'An error occurred';
+            submitButton.disabled = false;
+            submitButton.textContent = 'Create User';
         }
     } catch (error) {
-        const messageBox = document.getElementById('messageBox');
+        console.error('Create user error:', error);
         messageBox.style.display = 'block';
         messageBox.style.background = '#f8d7da';
         messageBox.style.color = '#721c24';
-        messageBox.textContent = 'An error occurred while creating the user.';
+        messageBox.textContent = error.message || 'An error occurred while creating the user.';
+        submitButton.disabled = false;
+        submitButton.textContent = 'Create User';
     }
 });
 </script>

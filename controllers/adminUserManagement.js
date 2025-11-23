@@ -234,17 +234,39 @@ async function updateUserRole(req, res) {
  * Require re-authentication for critical actions
  */
 async function requireReAuth(userId, currentPassword) {
-    const user = await User.findById(userId);
-    if (!user) {
-        return { authenticated: false, reason: 'User not found' };
-    }
+    try {
+        if (!userId) {
+            return { authenticated: false, reason: 'User ID is required' };
+        }
+        
+        if (!currentPassword || typeof currentPassword !== 'string' || currentPassword.trim() === '') {
+            return { authenticated: false, reason: 'Password is required' };
+        }
 
-    const bcrypt = require('bcrypt');
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    return { 
-        authenticated: isMatch, 
-        reason: isMatch ? null : 'Password is incorrect' 
-    };
+        // Convert userId to string if it's an ObjectId
+        const userIdStr = userId && userId.toString ? userId.toString() : String(userId);
+
+        const user = await User.findById(userIdStr);
+        if (!user) {
+            return { authenticated: false, reason: 'User not found' };
+        }
+
+        if (!user.password) {
+            return { authenticated: false, reason: 'User password not found' };
+        }
+
+        // Trim password and compare
+        const trimmedPassword = currentPassword.trim();
+        const isMatch = await bcrypt.compare(trimmedPassword, user.password);
+        
+        return { 
+            authenticated: isMatch, 
+            reason: isMatch ? null : 'Password is incorrect' 
+        };
+    } catch (error) {
+        console.error('Re-authentication error:', error);
+        return { authenticated: false, reason: 'Authentication error occurred: ' + error.message };
+    }
 }
 
 /**
@@ -286,10 +308,11 @@ async function deleteUser(req, res) {
     try {
         const adminUser = req.user;
         const { userId } = req.params;
-        const { password } = req.body; // Re-authentication password
+        // Get password from request body
+        const password = req.body.password; // Re-authentication password
 
         // Require re-authentication
-        if (!password) {
+        if (!password || typeof password !== 'string' || password.trim() === '') {
             return res.status(400).json({ 
                 error: 'Validation Error',
                 message: 'Password is required for this action.',
@@ -297,16 +320,27 @@ async function deleteUser(req, res) {
             });
         }
 
+        // Get the admin user's MongoDB _id (handle both string and ObjectId)
+        const adminUserId = adminUser._id ? (adminUser._id.toString ? adminUser._id.toString() : String(adminUser._id)) : null;
+        if (!adminUserId) {
+            console.error('Admin user ID not found in req.user');
+            return res.status(500).json({ 
+                error: 'Server Error',
+                message: 'Unable to verify authentication. Please log out and log back in.'
+            });
+        }
+
         // Verify re-authentication
-        const reAuth = await requireReAuth(adminUser._id, password);
+        const reAuth = await requireReAuth(adminUserId, password);
+        
         if (!reAuth.authenticated) {
             logger.logAuth('USER_DELETE_ATTEMPT', adminUser.id, false, { 
-                reason: 'Re-authentication failed',
+                reason: 'Re-authentication failed: ' + (reAuth.reason || 'Unknown'),
                 targetUserId: userId 
             });
             return res.status(401).json({ 
                 error: 'Authentication Failed',
-                message: 'Incorrect password. Please try again.',
+                message: reAuth.reason || 'Incorrect password. Please try again.',
                 requiresReAuth: true
             });
         }
@@ -320,7 +354,9 @@ async function deleteUser(req, res) {
         }
 
         // Prevent self-deletion
-        if (user._id.toString() === adminUser._id.toString()) {
+        const userMongoId = user._id.toString ? user._id.toString() : String(user._id);
+        const adminMongoId = adminUser._id ? (adminUser._id.toString ? adminUser._id.toString() : String(adminUser._id)) : null;
+        if (userMongoId === adminMongoId) {
             return res.status(400).json({ 
                 error: 'Validation Error',
                 message: 'You cannot delete your own account.'
@@ -370,13 +406,17 @@ async function deleteUser(req, res) {
         });
     } catch (error) {
         console.error('Error deleting user:', error);
-        logger.logAuth('USER_DELETE_ATTEMPT', req.user.id, false, { 
+        console.error('Error stack:', error.stack);
+        const userId = req.user ? req.user.id : 'unknown';
+        logger.logAuth('USER_DELETE_ATTEMPT', userId, false, { 
             reason: 'Server error',
-            error: error.message 
+            error: error.message,
+            stack: error.stack
         });
         res.status(500).json({ 
             error: 'Server Error',
-            message: 'An error occurred while deleting the user.'
+            message: 'An error occurred while deleting the user. Please try again.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 }

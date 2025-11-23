@@ -52,6 +52,23 @@
                         <div class="password-match-message" id="passwordMatchMessage"></div>
                     </div>
                     
+                    <div class="security-question-container" style="margin-top: 15px;">
+                        <label for="securityQuestion" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Security Question *</label>
+                        <select id="securityQuestion" name="securityQuestion" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 10px;">
+                            <option value="">Select a security question</option>
+                            <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                            <option value="What city were you born in?">What city were you born in?</option>
+                            <option value="What was your mother's maiden name?">What was your mother's maiden name?</option>
+                            <option value="What was the name of your elementary school?">What was the name of your elementary school?</option>
+                            <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+                            <option value="What is your favorite book?">What is your favorite book?</option>
+                            <option value="What was the make of your first car?">What was the make of your first car?</option>
+                            <option value="What is the name of your favorite teacher?">What is the name of your favorite teacher?</option>
+                        </select>
+                        <input type="text" id="securityAnswer" placeholder="Security Answer *" name="securityAnswer" required maxlength="100" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"/>
+                        <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">This will be used to verify your identity when changing your password.</small>
+                    </div>
+                    
                     <button class = "btn">Create</button>
                         <span></span>
                         <span></span>

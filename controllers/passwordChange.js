@@ -81,18 +81,28 @@ function checkPasswordAging(user) {
 }
 
 /**
- * Require re-authentication before password change
+ * Require re-authentication using security question before password change
  */
-async function requireReAuth(userId, currentPassword) {
+async function requireReAuth(userId, securityAnswer) {
     const user = await User.findById(userId);
     if (!user) {
         return { authenticated: false, reason: 'User not found' };
     }
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!user.securityQuestion || !user.securityAnswer) {
+        return { 
+            authenticated: false, 
+            reason: 'Security question not set. Please contact administrator.' 
+        };
+    }
+
+    // Compare security answer (case-insensitive, trimmed)
+    const normalizedAnswer = securityAnswer.trim().toLowerCase();
+    const isMatch = await bcrypt.compare(normalizedAnswer, user.securityAnswer);
+    
     return { 
         authenticated: isMatch, 
-        reason: isMatch ? null : 'Current password is incorrect' 
+        reason: isMatch ? null : 'Security answer is incorrect' 
     };
 }
 
@@ -106,19 +116,19 @@ async function handlePasswordChange(req, res) {
             return res.redirect('/?error=session');
         }
 
-        const { currentPassword, newPassword, confirmPassword } = req.body;
+        const { securityAnswer, newPassword, confirmPassword } = req.body;
 
         // Validate required fields
-        if (!currentPassword || !newPassword || !confirmPassword) {
+        if (!securityAnswer || !newPassword || !confirmPassword) {
             logger.logPasswordChange(userId, false, 'Missing required fields');
-            return res.redirect('/Profile?error=password&details=' + encodeURIComponent('All password fields are required'));
+            return res.redirect('/Profile?error=password&details=' + encodeURIComponent('All fields are required'));
         }
 
-        // Re-authentication check
-        const reAuth = await requireReAuth(userId, currentPassword);
+        // Re-authentication check using security question
+        const reAuth = await requireReAuth(userId, securityAnswer);
         if (!reAuth.authenticated) {
-            logger.logPasswordChange(userId, false, 'Re-authentication failed');
-            return res.redirect('/Profile?error=password&details=' + encodeURIComponent('Current password is incorrect'));
+            logger.logPasswordChange(userId, false, 'Re-authentication failed: ' + reAuth.reason);
+            return res.redirect('/Profile?error=password&details=' + encodeURIComponent(reAuth.reason || 'Security answer is incorrect'));
         }
 
         const user = await User.findById(userId);

@@ -40,7 +40,9 @@ adminRouter.get('/index', async (req, res) => {
     try {
         await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
         const user = req.user;
-        let reservations =  await Laboratory.aggregate([
+        const userRole = user.accountType || (user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+        
+        let reservations = await Laboratory.aggregate([
             {
                 $unwind: "$reservationData", // Deconstruct the reservationData array
             },
@@ -49,17 +51,32 @@ adminRouter.get('/index', async (req, res) => {
             },
             {
                 $match: {
-                "reservationData.reservationList.isOccupied": true,
+                    "reservationData.reservationList.isOccupied": true,
                 },
             },
             {
                 $project: {
-                _id: 0, // Exclude the _id field
-                labName: "$name",
-                reservation: "$reservationData.reservationList" , // Include only the reservationList field
+                    _id: 0, // Exclude the _id field
+                    labName: "$name",
+                    reservation: "$reservationData.reservationList", // Include only the reservationList field
                 },
             },
         ]);
+        
+        // For ROLE_A, filter to show only reservations made by ROLE_B users
+        if (userRole === 'ROLE_A') {
+            const roleBUserIds = await User.find({ 
+                $or: [
+                    { accountType: 'ROLE_B' },
+                    { _legacyRole: 'STUDENT' }
+                ]
+            }).select('id').lean();
+            const roleBIds = roleBUserIds.map(u => u.id);
+            
+            reservations = reservations.filter(res => {
+                return res.reservation.UserID && roleBIds.includes(res.reservation.UserID);
+            });
+        }
         
         res.render('adminIndex', { 
             layout:'admin', 
@@ -176,8 +193,65 @@ adminRouter.post('/reserve', async (req, resp) => {
 
 adminRouter.post('/deleteReserve', async (req, res) => {
     const { labName, SlotID, date, time } = req.body;
+    const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    
     try {
-        await Laboratory.findOneAndUpdate(
+        // Convert SlotID to number for comparison (it might be string from form)
+        const slotIdNum = typeof SlotID === 'string' ? parseInt(SlotID, 10) : SlotID;
+        
+        // For ROLE_A, verify the reservation belongs to a ROLE_B user
+        if (userRole === 'ROLE_A') {
+            const lab = await Laboratory.findOne({ name: labName });
+            if (!lab) {
+                return res.status(404).send("Laboratory not found");
+            }
+            
+            // Find the reservation - handle type conversions
+            let reservationFound = false;
+            let reservationUserID = null;
+            
+            for (const reservationData of lab.reservationData || []) {
+                for (const reservation of reservationData.reservationList || []) {
+                    // Compare with type conversion - SlotID might be number or string
+                    const resSlotId = typeof reservation.SlotID === 'number' ? reservation.SlotID : parseInt(reservation.SlotID, 10);
+                    const resDate = String(reservation.date || '').trim();
+                    const resTime = String(reservation.time || '').trim();
+                    const reqDate = String(date || '').trim();
+                    const reqTime = String(time || '').trim();
+                    
+                    if (resSlotId === slotIdNum && 
+                        resDate === reqDate && 
+                        resTime === reqTime && 
+                        reservation.isOccupied) {
+                        reservationFound = true;
+                        reservationUserID = reservation.UserID;
+                        break;
+                    }
+                }
+                if (reservationFound) break;
+            }
+            
+            if (!reservationFound || !reservationUserID) {
+                logger.logAccessControl(req.user.id, '/admin/deleteReserve', 'Attempted to delete non-existent reservation');
+                return res.status(404).send("Reservation not found. Please refresh the page and try again.");
+            }
+            
+            // Check if the reservation belongs to a ROLE_B user
+            const reservationUser = await User.findOne({ id: reservationUserID });
+            if (!reservationUser) {
+                logger.logAccessControl(req.user.id, '/admin/deleteReserve', 'Reservation user not found');
+                return res.status(403).send("Cannot delete reservation: User not found");
+            }
+            
+            const reservationUserRole = reservationUser.accountType || (reservationUser._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+            if (reservationUserRole !== 'ROLE_B') {
+                logger.logAccessControl(req.user.id, '/admin/deleteReserve', `ROLE_A attempted to delete reservation for ${reservationUserRole} user`);
+                return res.status(403).send("You can only delete reservations made by Role B users.");
+            }
+        }
+        
+        // Use number for SlotID in array filter
+        const updateResult = await Laboratory.findOneAndUpdate(
             { 
                 name: labName,
             },
@@ -189,11 +263,20 @@ adminRouter.post('/deleteReserve', async (req, res) => {
             },
             {
                 arrayFilters: [
-                    { "inner.SlotID": SlotID, "inner.date": date, "inner.time": time },
+                    { 
+                        "inner.SlotID": slotIdNum, 
+                        "inner.date": String(date).trim(), 
+                        "inner.time": String(time).trim() 
+                    },
                 ],
                 new: true
             }
         );
+        
+        if (!updateResult) {
+            return res.status(404).send("Reservation not found in database");
+        }
+        
         await Laboratory.findOneAndUpdate(
             {
                 name: labName,
@@ -205,7 +288,10 @@ adminRouter.post('/deleteReserve', async (req, res) => {
             },
             { 
                 arrayFilters: [
-                    { "outer.reservationList.date": date, "outer.reservationList.time": time },
+                    { 
+                        "outer.reservationList.date": String(date).trim(), 
+                        "outer.reservationList.time": String(time).trim() 
+                    },
                 ],
                 new: true, 
             }
@@ -216,14 +302,71 @@ adminRouter.post('/deleteReserve', async (req, res) => {
         res.redirect("/admin/index");
     } catch (error) {
         console.error("Error deleting reservation:", error);
-        res.status(500).send("Error deleting reservation");
+        res.status(500).send("Error deleting reservation: " + error.message);
     }
 });
 
 adminRouter.post('/editReserve', async (req, res) => {
     const { labName, SlotID, date, time } = req.body;
+    const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    
     try {
-        await Laboratory.findOneAndUpdate(
+        // Convert SlotID to number for comparison (it might be string from form)
+        const slotIdNum = typeof SlotID === 'string' ? parseInt(SlotID, 10) : SlotID;
+        
+        // For ROLE_A, verify the reservation belongs to a ROLE_B user
+        if (userRole === 'ROLE_A') {
+            const lab = await Laboratory.findOne({ name: labName });
+            if (!lab) {
+                return res.status(404).send("Laboratory not found");
+            }
+            
+            // Find the reservation - handle type conversions
+            let reservationFound = false;
+            let reservationUserID = null;
+            
+            for (const reservationData of lab.reservationData || []) {
+                for (const reservation of reservationData.reservationList || []) {
+                    // Compare with type conversion - SlotID might be number or string
+                    const resSlotId = typeof reservation.SlotID === 'number' ? reservation.SlotID : parseInt(reservation.SlotID, 10);
+                    const resDate = String(reservation.date || '').trim();
+                    const resTime = String(reservation.time || '').trim();
+                    const reqDate = String(date || '').trim();
+                    const reqTime = String(time || '').trim();
+                    
+                    if (resSlotId === slotIdNum && 
+                        resDate === reqDate && 
+                        resTime === reqTime && 
+                        reservation.isOccupied) {
+                        reservationFound = true;
+                        reservationUserID = reservation.UserID;
+                        break;
+                    }
+                }
+                if (reservationFound) break;
+            }
+            
+            if (!reservationFound || !reservationUserID) {
+                logger.logAccessControl(req.user.id, '/admin/editReserve', 'Attempted to edit non-existent reservation');
+                return res.status(404).send("Reservation not found. Please refresh the page and try again.");
+            }
+            
+            // Check if the reservation belongs to a ROLE_B user
+            const reservationUser = await User.findOne({ id: reservationUserID });
+            if (!reservationUser) {
+                logger.logAccessControl(req.user.id, '/admin/editReserve', 'Reservation user not found');
+                return res.status(403).send("Cannot edit reservation: User not found");
+            }
+            
+            const reservationUserRole = reservationUser.accountType || (reservationUser._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+            if (reservationUserRole !== 'ROLE_B') {
+                logger.logAccessControl(req.user.id, '/admin/editReserve', `ROLE_A attempted to edit reservation for ${reservationUserRole} user`);
+                return res.status(403).send("You can only edit reservations made by Role B users.");
+            }
+        }
+        
+        // Use number for SlotID in array filter
+        const updateResult = await Laboratory.findOneAndUpdate(
             { 
                 name: labName,
             },
@@ -238,11 +381,20 @@ adminRouter.post('/editReserve', async (req, res) => {
             },
             {
                 arrayFilters: [
-                    { "inner.SlotID": SlotID, "inner.date": date, "inner.time": time },
+                    { 
+                        "inner.SlotID": slotIdNum, 
+                        "inner.date": String(date).trim(), 
+                        "inner.time": String(time).trim() 
+                    },
                 ],
                 new: true
             }
         );
+        
+        if (!updateResult) {
+            return res.status(404).send("Reservation not found in database");
+        }
+        
         await Laboratory.findOneAndUpdate( // increment usage
                 {
                     name: labName,
@@ -254,17 +406,20 @@ adminRouter.post('/editReserve', async (req, res) => {
                 },
                 { 
                     arrayFilters: [
-                        { "outer.reservationList.date": date, "outer.reservationList.time": time },
+                        { 
+                            "outer.reservationList.date": String(date).trim(), 
+                            "outer.reservationList.time": String(time).trim() 
+                        },
                     ],
                     new: true, 
                 }
             )
 
-        console.log("Reservation deleted successfully");
+        console.log("Reservation edited successfully");
         res.redirect("/admin/reservation");
     } catch (error) {
-        console.error("Error deleting reservation:", error);
-        res.status(500).send("Error deleting reservation");
+        console.error("Error editing reservation:", error);
+        res.status(500).send("Error editing reservation: " + error.message);
     }
 });
 
@@ -438,9 +593,23 @@ adminRouter.get('/logs/:filename', async (req, resp) => {
     }
 });
 
-// User Management Routes
+// User Management Routes - ADMINISTRATOR only
+function requireAdministrator(req, res, next) {
+    const userRole = req.user.accountType || (req.user._legacyRole === 'ADMIN' ? 'ADMINISTRATOR' : 'ROLE_B');
+    if (userRole !== 'ADMINISTRATOR' && req.user._legacyRole !== 'ADMIN') {
+        logger.logAccessControl(req.user.id, req.path, 'Non-administrator attempted to access user management');
+        return res.status(403).render('403', {
+            layout: 'editprofile',
+            title: 'Access Denied',
+            user: req.user,
+            message: 'Only Administrators can access user management.'
+        });
+    }
+    next();
+}
+
 // Get all users
-adminRouter.get('/users', async (req, res) => {
+adminRouter.get('/users', requireAdministrator, async (req, res) => {
     try {
         await User.findByIdAndUpdate(req.user._id, { lastActivity: new Date() });
         const users = await userManagement.getAllUsers(req.user);
@@ -459,27 +628,27 @@ adminRouter.get('/users', async (req, res) => {
 });
 
 // Create user (POST)
-adminRouter.post('/users/create', async (req, res) => {
+adminRouter.post('/users/create', requireAdministrator, async (req, res) => {
     await userManagement.createUser(req, res);
 });
 
 // Update user role (POST)
-adminRouter.post('/users/:userId/role', async (req, res) => {
+adminRouter.post('/users/:userId/role', requireAdministrator, async (req, res) => {
     await userManagement.updateUserRole(req, res);
 });
 
 // Show delete confirmation with re-authentication (GET)
-adminRouter.get('/users/:userId/delete', async (req, res) => {
+adminRouter.get('/users/:userId/delete', requireAdministrator, async (req, res) => {
     await userManagement.showDeleteConfirmation(req, res);
 });
 
 // Delete user (POST) - requires re-authentication
-adminRouter.post('/users/:userId/delete', async (req, res) => {
+adminRouter.post('/users/:userId/delete', requireAdministrator, async (req, res) => {
     await userManagement.deleteUser(req, res);
 });
 
 // Get user details (GET)
-adminRouter.get('/users/:userId', async (req, res) => {
+adminRouter.get('/users/:userId', requireAdministrator, async (req, res) => {
     await userManagement.getUserDetails(req, res);
 });
 

@@ -85,6 +85,24 @@ const UserSchema = new mongoose.Schema({
     lastPasswordResetRequest: {
         type: Date,
         default: null
+    },
+    securityQuestion: {
+        type: String,
+        required: false,
+        enum: [
+            'What was the name of your first pet?',
+            'What city were you born in?',
+            'What was your mother\'s maiden name?',
+            'What was the name of your elementary school?',
+            'What was your childhood nickname?',
+            'What is your favorite book?',
+            'What was the make of your first car?',
+            'What is the name of your favorite teacher?'
+        ]
+    },
+    securityAnswer: {
+        type: String,
+        required: false
     }
 });
 
