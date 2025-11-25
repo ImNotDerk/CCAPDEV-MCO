@@ -1,4 +1,13 @@
 $(document).ready(function() {
+    const $registrationForm = $('.registration-form');
+    const $resetForm = $('.reset-password-form');
+    const $idInput = $('#idNumber');
+    const $idFeedback = $('#idFeedback');
+    const $passwordInput = $('#password');
+    const $passwordConfirmInput = $('#password2');
+    const $securityQuestion = $('#securityQuestion');
+    const $securityAnswer = $('#securityAnswer');
+
     $('.message a').click(function() {
     $('form').animate({height: "toggle", opacity: "toggle"}, "slow");
     });
@@ -45,6 +54,24 @@ $(document).ready(function() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
+    const registrationMessageData = document.getElementById('registration-message-data');
+    if (registrationMessageData) {
+        const serverError = registrationMessageData.dataset.error;
+        const serverErrorDetails = registrationMessageData.dataset.errorDetails;
+        const serverSuccess = registrationMessageData.dataset.success;
+
+        if (serverError) {
+            const errorMessage = serverErrorDetails || 'Registration failed. Please review your inputs.';
+            showErrorPopup(errorMessage);
+            $('.registration-form').show();
+            $('.login-form').hide();
+        } else if (serverSuccess) {
+            showSuccessPopup(serverSuccess);
+            $('.login-form').show();
+            $('.registration-form').hide();
+        }
+    }
+
     // Password validation on input
     $('#password').on('input focus', function() {
         const password = $(this).val();
@@ -52,6 +79,7 @@ $(document).ready(function() {
             $('#passwordRequirements').addClass('show');
         }
         validatePassword(password);
+        updateFormActionButtons();
     });
 
     $('#password').on('blur', function() {
@@ -64,12 +92,30 @@ $(document).ready(function() {
     // Password match validation
     $('#password2').on('input', function() {
         checkPasswordMatch();
+        updateFormActionButtons();
     });
 
+    // ID validation
+    $idInput.on('input', function() {
+        const validation = validateIdField($(this).val());
+        updateIdFeedback(validation);
+        updateFormActionButtons();
+    });
+
+    // Track other inputs
+    $('#fname, #lname, #email').on('input', updateFormActionButtons);
+    $securityQuestion.on('change', updateFormActionButtons);
+    $securityAnswer.on('input', updateFormActionButtons);
+
+    // Initialize button state
+    updateIdFeedback(validateIdField($idInput.val()));
+    updateFormActionButtons();
+
     // Form submission validation
-    $('.registration-form').on('submit', function(e) {
+    $registrationForm.on('submit', function(e) {
         const password = $('#password').val();
         const password2 = $('#password2').val();
+        const idValidation = validateIdField($idInput.val());
         
         if (!validatePasswordComplete(password)) {
             e.preventDefault();
@@ -82,6 +128,29 @@ $(document).ready(function() {
             showErrorPopup('Passwords do not match. Please try again.');
             return false;
         }
+
+        if (!idValidation.isValid) {
+            e.preventDefault();
+            showErrorPopup(idValidation.message || 'Please provide a valid ID number.');
+            return false;
+        }
+    });
+
+    $resetForm.on('submit', function(e) {
+        const password = $('#password').val();
+        const password2 = $('#password2').val();
+
+        if (!validatePasswordComplete(password)) {
+            e.preventDefault();
+            showErrorPopup('Please ensure your password meets all requirements.');
+            return false;
+        }
+
+        if (password !== password2) {
+            e.preventDefault();
+            showErrorPopup('Passwords do not match. Please try again.');
+            return false;
+        }
     });
 });
 
@@ -89,6 +158,7 @@ $(document).ready(function() {
 function validatePassword(password) {
     const requirements = {
         length: password.length >= 8,
+        maxLength: password.length <= 50 && password.length > 0,
         uppercase: /[A-Z]/.test(password),
         lowercase: /[a-z]/.test(password),
         number: /[0-9]/.test(password),
@@ -101,6 +171,7 @@ function validatePassword(password) {
     updateRequirement('req-lowercase', requirements.lowercase);
     updateRequirement('req-number', requirements.number);
     updateRequirement('req-special', requirements.special);
+    updateRequirement('req-maxlength', requirements.maxLength);
 
     return Object.values(requirements).every(req => req === true);
 }
@@ -122,6 +193,7 @@ function updateRequirement(id, isValid) {
 // Check if password meets all requirements
 function validatePasswordComplete(password) {
     return password.length >= 8 &&
+           password.length <= 50 &&
            /[A-Z]/.test(password) &&
            /[a-z]/.test(password) &&
            /[0-9]/.test(password) &&
@@ -144,6 +216,100 @@ function checkPasswordMatch() {
     } else {
         matchMessage.text('✗ Passwords do not match').removeClass('match').addClass('match-error');
     }
+}
+
+function normalizeIdValue(value) {
+    if (typeof value !== 'string') return '';
+    return value.replace(/\s+/g, '').trim();
+}
+
+function validateIdField(value) {
+    const normalized = normalizeIdValue(value);
+
+    if (!normalized) {
+        return { isValid: false, message: 'ID number is required' };
+    }
+
+    if (!/^\d+$/.test(normalized)) {
+        return { isValid: false, message: 'ID number must contain digits only' };
+    }
+
+    if (normalized.length !== 8) {
+        return { isValid: false, message: 'ID number must be exactly 8 digits' };
+    }
+
+    let sum = 0;
+    for (let i = 0; i < normalized.length; i++) {
+        const digit = parseInt(normalized.charAt(i), 10);
+        const position = normalized.length - i;
+        sum += digit * position;
+    }
+
+    if (sum % 11 !== 0) {
+        return { isValid: false, message: 'ID number failed the checksum validation' };
+    }
+
+    return { isValid: true, message: 'ID number looks good!' };
+}
+
+function updateIdFeedback(validation) {
+    const $feedback = $('#idFeedback');
+
+    if (!validation || !validation.message) {
+        $feedback.text('').removeClass('error success');
+        return;
+    }
+
+    $feedback
+        .text(validation.message)
+        .toggleClass('error', !validation.isValid)
+        .toggleClass('success', validation.isValid);
+}
+
+function updateFormActionButtons() {
+    const $createBtn = $('#createAccountBtn');
+    const $resetBtn = $('#resetPasswordBtn');
+
+    if ($createBtn.length) {
+        const registrationReady = isRegistrationFormValid();
+        $createBtn.prop('disabled', !registrationReady).toggleClass('btn-disabled', !registrationReady);
+    }
+
+    if ($resetBtn.length) {
+        const resetReady = isResetFormValid();
+        $resetBtn.prop('disabled', !resetReady).toggleClass('btn-disabled', !resetReady);
+    }
+}
+
+function isRegistrationFormValid() {
+    const firstNameValid = $('#fname').val().trim().length > 0;
+    const lastNameValid = $('#lname').val().trim().length > 0;
+    const emailInput = document.getElementById('email');
+    const emailValid = emailInput ? emailInput.checkValidity() : false;
+    const password = $('#password').val();
+    const passwordConfirm = $('#password2').val();
+    const passwordValid = validatePasswordComplete(password);
+    const passwordsMatch = password.length > 0 && password === passwordConfirm;
+    const securityQuestionSelected = $('#securityQuestion').val() && $('#securityQuestion').val().length > 0;
+    const securityAnswerValid = $('#securityAnswer').val().trim().length > 0 && $('#securityAnswer').val().trim().length <= 100;
+    const idValidation = validateIdField($('#idNumber').val());
+
+    return firstNameValid &&
+        lastNameValid &&
+        emailValid &&
+        passwordValid &&
+        passwordsMatch &&
+        securityQuestionSelected &&
+        securityAnswerValid &&
+        idValidation.isValid;
+}
+
+function isResetFormValid() {
+    const password = $('#password').val();
+    const passwordConfirm = $('#password2').val();
+    return password.length > 0 &&
+        validatePasswordComplete(password) &&
+        password === passwordConfirm;
 }
 
 function showErrorPopup(message) {

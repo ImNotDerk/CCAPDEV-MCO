@@ -1,6 +1,7 @@
 const User = require('../models/users.js');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
+const { validateIdNumber, normalizeId } = require('../utils/idValidator');
 
 const saltRounds = 10;
 
@@ -12,6 +13,10 @@ function validatePassword(password) {
     
     if (password.length < 8) {
         errors.push('Password must be at least 8 characters long');
+    }
+
+    if (password.length > 50) {
+        errors.push('Password must not exceed 50 characters');
     }
     
     if (!/[A-Z]/.test(password)) {
@@ -70,6 +75,7 @@ async function createUser(req, res) {
     try {
         const adminUser = req.user;
         const { fname, lname, id, email, password, accountType } = req.body;
+        const normalizedEmail = email ? email.toLowerCase().trim() : '';
 
         // Only Administrator can create ADMINISTRATOR and ROLE_A accounts
         if (accountType === 'ADMINISTRATOR' || accountType === 'ROLE_A') {
@@ -88,6 +94,36 @@ async function createUser(req, res) {
                 error: 'Validation Error',
                 message: 'All fields are required.'
             });
+        }
+
+        if (!normalizedEmail) {
+            return res.status(400).json({
+                error: 'Validation Error',
+                message: 'Email is required.'
+            });
+        }
+
+        const isAdminAccount = accountType === 'ADMINISTRATOR' || accountType === 'ADMIN';
+        let normalizedId;
+
+        if (isAdminAccount) {
+            normalizedId = typeof id === 'string' ? id.trim() : '';
+            if (!normalizedId) {
+                return res.status(400).json({
+                    error: 'Validation Error',
+                    message: 'ID number is required.'
+                });
+            }
+            normalizedId = normalizeId(normalizedId);
+        } else {
+            const idValidation = validateIdNumber(id);
+            if (!idValidation.isValid) {
+                return res.status(400).json({
+                    error: 'Validation Error',
+                    message: idValidation.errors.join('. ')
+                });
+            }
+            normalizedId = idValidation.normalized;
         }
 
         // Validate account type
@@ -109,7 +145,7 @@ async function createUser(req, res) {
 
         // Check if user already exists
         const existingUser = await User.findOne({ 
-            $or: [{ id: id }, { email: email }] 
+            $or: [{ id: normalizedId }, { email: normalizedEmail }] 
         });
 
         if (existingUser) {
@@ -126,8 +162,8 @@ async function createUser(req, res) {
         const newUser = new User({
             fname,
             lname,
-            id,
-            email: email.toLowerCase().trim(),
+            id: normalizedId,
+            email: normalizedEmail,
             password: hash,
             accountType,
             passwordHistory: [{ password: hash, createdAt: new Date() }],

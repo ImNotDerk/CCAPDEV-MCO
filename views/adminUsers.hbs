@@ -96,10 +96,14 @@
                 {{/if}}
             </td>
             <td>
-                {{#if lastLogin}}
-                    {{formatDate lastLogin}}
+                {{#if lastLoginPrevious}}
+                    {{formatDate lastLoginPrevious}}
                 {{else}}
-                    Never
+                    {{#if lastLogin}}
+                        {{formatDate lastLogin}}
+                    {{else}}
+                        Never
+                    {{/if}}
                 {{/if}}
             </td>
             <td>

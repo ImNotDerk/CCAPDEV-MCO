@@ -1,0 +1,61 @@
+{"timestamp":"2025-11-25T13:31:20.512Z","level":"WARN","category":"VALIDATION","message":"Validation failure","field":"id","value":"12234343","reason":"ID number failed the checksum validation","userId":"anonymous"}
+{"timestamp":"2025-11-25T13:42:06.126Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"Invalid ID format"}
+{"timestamp":"2025-11-25T13:42:20.652Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_REQUEST","userId":"admin","success":true,"reason":"Security question displayed"}
+{"timestamp":"2025-11-25T13:42:25.494Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_VERIFIED","userId":"admin","success":true}
+{"timestamp":"2025-11-25T13:43:07.410Z","level":"INFO","category":"PASSWORD_CHANGE","message":"Password change attempt","userId":"admin","success":false,"reason":"Password complexity validation failed during reset"}
+{"timestamp":"2025-11-25T13:43:17.779Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_ATTEMPT","userId":"unknown","success":false,"reason":"Server error","error":"User validation failed: id: ID number must be exactly 8 digits long"}
+{"timestamp":"2025-11-25T13:43:29.239Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"Invalid ID format"}
+{"timestamp":"2025-11-25T13:43:35.951Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_REQUEST","userId":"admin","success":true,"reason":"Security question displayed"}
+{"timestamp":"2025-11-25T13:43:37.957Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_VERIFIED","userId":"admin","success":true}
+{"timestamp":"2025-11-25T13:43:45.880Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_ATTEMPT","userId":"unknown","success":false,"reason":"Server error","error":"User validation failed: id: ID number must be exactly 8 digits long"}
+{"timestamp":"2025-11-25T13:50:53.722Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_REQUEST","userId":"admin","success":true,"reason":"Security question displayed"}
+{"timestamp":"2025-11-25T13:50:55.599Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_VERIFIED","userId":"admin","success":true}
+{"timestamp":"2025-11-25T13:51:19.596Z","level":"INFO","category":"PASSWORD_CHANGE","message":"Password change attempt","userId":"admin","success":true,"reason":"Password reset successful"}
+{"timestamp":"2025-11-25T13:51:19.597Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_SUCCESS","userId":"admin","success":true}
+{"timestamp":"2025-11-25T13:51:26.046Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_REQUEST","userId":"admin","success":true,"reason":"Security question displayed"}
+{"timestamp":"2025-11-25T13:51:28.187Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_VERIFIED","userId":"admin","success":true}
+{"timestamp":"2025-11-25T13:51:33.238Z","level":"WARN","category":"PASSWORD_RESET","message":"Password reset blocked - password too new","userId":"admin","email":"admin1@dlsu.edu.ph","daysSinceCreation":0,"reason":"Password must be at least 1 day(s) old before it can be reset. Please try again in 24 hour(s)."}
+{"timestamp":"2025-11-25T13:51:33.239Z","level":"INFO","category":"PASSWORD_RESET","message":"PASSWORD_RESET_ATTEMPT","userId":"admin","success":false,"reason":"Password must be at least 1 day(s) old before it can be reset. Please try again in 24 hour(s)."}
+{"timestamp":"2025-11-25T13:51:41.853Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-25T13:51:47.206Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-25T13:51:53.435Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-25T13:52:01.181Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-25T13:52:06.409Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-25T13:52:25.432Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"admin","success":false,"reason":"User not found"}
+{"timestamp":"2025-11-25T13:56:23.003Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-23T16:53:49.092Z"}
+{"timestamp":"2025-11-25T13:56:42.941Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T13:56:22.952Z"}
+{"timestamp":"2025-11-25T13:57:20.519Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"1","success":false,"reason":"Invalid ID format"}
+{"timestamp":"2025-11-25T13:58:03.121Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T13:56:42.901Z"}
+{"timestamp":"2025-11-25T13:58:23.308Z","level":"INFO","category":"AUTHENTICATION","message":"USER_DELETED","userId":"admin","success":true,"deletedUserId":"2","deletedUserEmail":"abcd@gmail.com","deletedUserRole":"ROLE_B"}
+{"timestamp":"2025-11-25T13:58:37.061Z","level":"INFO","category":"AUTHENTICATION","message":"USER_DELETED","userId":"admin","success":true,"deletedUserId":"1","deletedUserEmail":"audrinjavier06@gmail.com","deletedUserRole":"ROLE_A"}
+{"timestamp":"2025-11-25T13:58:48.600Z","level":"INFO","category":"AUTHENTICATION","message":"USER_DELETED","userId":"admin","success":true,"deletedUserId":"12234343","deletedUserEmail":"acolyt@gmail.com","deletedUserRole":"ROLE_B"}
+{"timestamp":"2025-11-25T14:00:32.795Z","level":"INFO","category":"AUTHENTICATION","message":"REGISTRATION","userId":"6925b680269026891d5a4a4a","success":true,"email":"audrin_javier@dlsu.edu.ph","id":"12207675"}
+{"timestamp":"2025-11-25T14:01:23.049Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12207675","success":true,"accountType":"ROLE_B","previousLastLogin":null}
+{"timestamp":"2025-11-25T14:01:31.580Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T13:58:03.079Z"}
+{"timestamp":"2025-11-25T14:01:49.908Z","level":"INFO","category":"AUTHENTICATION","message":"USER_ROLE_CHANGED","userId":"admin","success":true,"targetUserId":"12207675","oldRole":"ROLE_B","newRole":"ROLE_A"}
+{"timestamp":"2025-11-25T14:02:02.574Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12207675","success":true,"accountType":"ROLE_A","previousLastLogin":"2025-11-25T14:01:23.009Z"}
+{"timestamp":"2025-11-25T14:03:38.870Z","level":"INFO","category":"AUTHENTICATION","message":"REGISTRATION","userId":"6925b73a269026891d5a4bef","success":true,"email":"hans_sescon@dlsu.edu.ph","id":"12209554"}
+{"timestamp":"2025-11-25T14:03:49.574Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12209554","success":true,"accountType":"ROLE_B","previousLastLogin":null}
+{"timestamp":"2025-11-25T14:03:59.681Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T14:01:31.537Z"}
+{"timestamp":"2025-11-25T14:04:08.087Z","level":"INFO","category":"AUTHENTICATION","message":"USER_ROLE_CHANGED","userId":"admin","success":true,"targetUserId":"12207675","oldRole":"ROLE_A","newRole":"ROLE_B"}
+{"timestamp":"2025-11-25T14:04:16.119Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12207675","success":true,"accountType":"ROLE_B","previousLastLogin":"2025-11-25T14:02:02.531Z"}
+{"timestamp":"2025-11-25T14:04:26.770Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T14:03:59.641Z"}
+{"timestamp":"2025-11-25T14:04:34.139Z","level":"INFO","category":"AUTHENTICATION","message":"USER_ROLE_CHANGED","userId":"admin","success":true,"targetUserId":"12207675","oldRole":"ROLE_B","newRole":"ROLE_A"}
+{"timestamp":"2025-11-25T14:05:44.420Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Invalid password","failedAttempts":1}
+{"timestamp":"2025-11-25T14:05:52.981Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Invalid password","failedAttempts":2}
+{"timestamp":"2025-11-25T14:05:58.236Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Invalid password","failedAttempts":3}
+{"timestamp":"2025-11-25T14:06:02.931Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Invalid password","failedAttempts":4}
+{"timestamp":"2025-11-25T14:06:07.261Z","level":"WARN","category":"ACCOUNT_LOCKOUT","message":"Account locked","userId":"12207675","reason":"Failed attempts: 5"}
+{"timestamp":"2025-11-25T14:06:07.262Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Invalid password","failedAttempts":5,"accountLocked":true}
+{"timestamp":"2025-11-25T14:06:12.088Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Account locked","minutesLeft":30}
+{"timestamp":"2025-11-25T14:06:44.298Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T14:04:26.730Z"}
+{"timestamp":"2025-11-25T14:08:02.020Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_ATTEMPT","userId":"12207675","success":false,"reason":"Account locked","minutesLeft":29}
+{"timestamp":"2025-11-25T14:08:09.409Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12209554","success":true,"accountType":"ROLE_B","previousLastLogin":"2025-11-25T14:03:49.491Z"}
+{"timestamp":"2025-11-25T14:08:21.498Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T14:06:44.256Z"}
+{"timestamp":"2025-11-25T14:08:29.752Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12209554","success":true,"accountType":"ROLE_B","previousLastLogin":"2025-11-25T14:08:09.367Z"}
+{"timestamp":"2025-11-25T14:08:35.111Z","level":"WARN","category":"ACCESS_CONTROL","message":"Access denied","userId":"12209554","resource":"/users","reason":"Insufficient role for admin access"}
+{"timestamp":"2025-11-25T14:10:04.230Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T14:08:21.458Z"}
+{"timestamp":"2025-11-25T14:16:20.430Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"admin","success":true,"accountType":"ADMINISTRATOR","previousLastLogin":"2025-11-25T14:10:04.190Z"}
+{"timestamp":"2025-11-25T14:17:55.778Z","level":"INFO","category":"AUTHENTICATION","message":"REGISTRATION","userId":"6925ba9397fcffcdd9b13584","success":true,"email":"lv_delrosario@dlsu.edu.ph","id":"12206822"}
+{"timestamp":"2025-11-25T14:18:05.946Z","level":"INFO","category":"AUTHENTICATION","message":"LOGIN_SUCCESS","userId":"12206822","success":true,"accountType":"ROLE_B","previousLastLogin":null}
+{"timestamp":"2025-11-25T14:18:58.607Z","level":"INFO","category":"AUTHENTICATION","message":"REGISTRATION","userId":"6925bad297fcffcdd9b13592","success":true,"email":"carlos_felipe_ambrosio@dlsu.edu.ph","id":"12275964"}

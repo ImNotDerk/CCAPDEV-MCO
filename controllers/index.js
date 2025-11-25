@@ -162,9 +162,10 @@ router.get('/home', requireAuth, async (req, res) => {
         console.log(reservations);
         
         // Format dates for display
+        const lastLoginDisplay = user.lastLoginPrevious || user.lastLogin;
         const formattedUser = {
             ...user,
-            lastLoginFormatted: user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never',
+            lastLoginFormatted: lastLoginDisplay ? new Date(lastLoginDisplay).toLocaleString() : 'Never',
             lastActivityFormatted: user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'Never'
         };
         
@@ -205,10 +206,18 @@ router.post('/home', requireAuth, async (req, res) => {
             },
         ]);
 
+        const lastLoginDisplay = user.lastLoginPrevious || user.lastLogin;
+        const formattedUser = {
+            ...user,
+            lastLoginFormatted: lastLoginDisplay ? new Date(lastLoginDisplay).toLocaleString() : 'Never',
+            lastActivityFormatted: user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'Never'
+        };
+
         res.render('main', { 
             layout:'index', 
             title: 'Home',
-            reservations, user });
+            reservations, 
+            user: formattedUser });
     } catch (error) {
         errorFn(error);
         const token = ErrorHandler.setError(req, 'server', 'An error occurred. Please try again.');
@@ -225,11 +234,12 @@ router.get('/Profile', requireAuth, async (req,resp) =>{
     const isAdmin = userRole === 'ADMINISTRATOR' || userRole === 'ROLE_A' || user._legacyRole === 'ADMIN';
     const layout = isAdmin ? 'admin' : 'profile';
     
+    const lastLoginDisplay = user.lastLoginPrevious || user.lastLogin;
     resp.render('Profile',{
     layout: layout,
     title: 'Profile',
     user,
-    lastLogin: user.lastLogin,
+    lastLogin: lastLoginDisplay ? new Date(lastLoginDisplay).toLocaleString() : null,
     lastActivity: user.lastActivity,
     isAdmin: isAdmin
     });

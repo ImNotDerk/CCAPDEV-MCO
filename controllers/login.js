@@ -1,28 +1,47 @@
 const User = require('../models/users.js');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
+const { normalizeId, hasOnlyDigits, hasValidLength } = require('../utils/idValidator');
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
 
 async function handleLogin(req, res) {
     try {
-        const loginId = req.body.loginId;
+        const loginId = typeof req.body.loginId === 'string' ? req.body.loginId.trim() : '';
         const password = req.body.loginPass;
+        const normalizedLoginId = normalizeId(loginId);
+        const loginIdentifier = normalizedLoginId || loginId;
         
         // Generic error message for security
         const genericError = 'Invalid username and/or password';
         
         if (!loginId || !password) {
-            logger.logAuth('LOGIN_ATTEMPT', 'anonymous', false, { reason: 'Missing credentials' });
+            logger.logAuth('LOGIN_ATTEMPT', loginIdentifier || 'anonymous', false, { reason: 'Missing credentials' });
             return res.redirect('/LoginPage?error=invalid');
         }
 
-        const user = await User.findOne({ id: loginId });
+        let user = null;
+        if (normalizedLoginId) {
+            user = await User.findOne({ id: normalizedLoginId });
+        }
+
+        if (!user && loginId && loginId !== normalizedLoginId) {
+            user = await User.findOne({ id: loginId });
+        }
         
         if (!user) {
-            logger.logAuth('LOGIN_ATTEMPT', loginId, false, { reason: 'User not found' });
+            logger.logAuth('LOGIN_ATTEMPT', loginIdentifier, false, { reason: 'User not found' });
             return res.redirect('/LoginPage?error=invalid');
+        }
+
+        const isAdminUser = user.accountType === 'ADMINISTRATOR' || user.accountType === 'ADMIN' || user._legacyRole === 'ADMIN';
+
+        if (!isAdminUser) {
+            if (!normalizedLoginId || user.id !== normalizedLoginId || !hasOnlyDigits(normalizedLoginId) || !hasValidLength(normalizedLoginId)) {
+                logger.logAuth('LOGIN_ATTEMPT', loginIdentifier, false, { reason: 'Invalid ID format' });
+                return res.redirect('/LoginPage?error=invalid');
+            }
         }
 
         // Check if account is locked
@@ -46,6 +65,9 @@ async function handleLogin(req, res) {
             const previousLastLogin = user.lastLogin;
             
             // Update last login and activity
+            if (previousLastLogin) {
+                user.lastLoginPrevious = previousLastLogin;
+            }
             user.lastLogin = new Date();
             user.lastActivity = new Date();
             user.failedLoginAttempts = 0; // Reset failed attempts
@@ -107,7 +129,7 @@ async function handleLogin(req, res) {
         }
     } catch (err) {
         console.error(err);
-        logger.logAuth('LOGIN_ATTEMPT', req.body.loginId || 'unknown', false, { 
+            logger.logAuth('LOGIN_ATTEMPT', loginIdentifier || 'unknown', false, { 
             reason: 'Server error',
             error: err.message 
         });

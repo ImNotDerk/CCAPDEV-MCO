@@ -1,5 +1,40 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { 
+    normalizeId, 
+    hasOnlyDigits, 
+    hasValidLength, 
+    hasValidChecksum 
+} = require('../utils/idValidator');
+
+function isAdminRole(value) {
+    return value === 'ADMINISTRATOR' || value === 'ADMIN';
+}
+
+function shouldSkipIdValidation(context) {
+    if (!context) {
+        return false;
+    }
+
+    const directAccountType = context.accountType || (typeof context.get === 'function' ? context.get('accountType') : undefined);
+    const directLegacyRole = context._legacyRole || (typeof context.get === 'function' ? context.get('_legacyRole') : undefined);
+
+    if (isAdminRole(directAccountType) || directLegacyRole === 'ADMIN') {
+        return true;
+    }
+
+    if (typeof context.getUpdate === 'function') {
+        const update = context.getUpdate() || {};
+        const updatedAccountType = update.accountType || (update.$set ? update.$set.accountType : undefined);
+        const updatedLegacyRole = update._legacyRole || (update.$set ? update.$set._legacyRole : undefined);
+
+        if (isAdminRole(updatedAccountType) || updatedLegacyRole === 'ADMIN') {
+            return true;
+        }
+    }
+
+    return false;
+}
 const UserSchema = new mongoose.Schema({
     fname: {
         type: String,
@@ -12,7 +47,28 @@ const UserSchema = new mongoose.Schema({
     id: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        set: normalizeId,
+        validate: [
+            {
+                validator: function(value) {
+                    if (shouldSkipIdValidation(this)) {
+                        return true;
+                    }
+                    return !!value && hasOnlyDigits(value) && hasValidLength(value);
+                },
+                message: 'ID number must be exactly 8 digits long'
+            },
+            {
+                validator: function(value) {
+                    if (shouldSkipIdValidation(this)) {
+                        return true;
+                    }
+                    return !!value && hasValidChecksum(value);
+                },
+                message: 'ID number failed the checksum validation'
+            }
+        ]
     },
     email: {
         type: String,
@@ -47,6 +103,10 @@ const UserSchema = new mongoose.Schema({
         required: false
     },
     lastLogin: {
+        type: Date,
+        default: null
+    },
+    lastLoginPrevious: {
         type: Date,
         default: null
     },

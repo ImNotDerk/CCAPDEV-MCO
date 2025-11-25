@@ -2,6 +2,7 @@ const User = require('../models/users.js');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
 const ErrorHandler = require('../utils/errorHandler');
+const { validateIdNumber } = require('../utils/idValidator');
 
 const saltRounds = 10; // Define the number of salt rounds for hashing
 
@@ -33,6 +34,10 @@ function validatePassword(password) {
     if (password.length < 8) {
         errors.push('Password must be at least 8 characters long');
     }
+
+    if (password.length > 50) {
+        errors.push('Password must not exceed 50 characters');
+    }
     
     // At least one uppercase letter
     if (!/[A-Z]/.test(password)) {
@@ -62,10 +67,11 @@ function validatePassword(password) {
 
 async function handleRegistration(req, res) {
     const { fname, lname, id, email, password, password2, securityQuestion, securityAnswer } = req.body;
+    const normalizedEmail = email ? email.toLowerCase().trim() : '';
 
     // Log registration attempt
     console.log('Registration attempt:', { 
-        email: email ? email.toLowerCase().trim() : 'missing', 
+        email: normalizedEmail || 'missing', 
         id: id || 'missing',
         hasPassword: !!password,
         hasSecurityQuestion: !!securityQuestion
@@ -93,7 +99,18 @@ async function handleRegistration(req, res) {
         return res.redirect('/?err=' + token);
     }
 
-    if (!email || !email.trim()) {
+    const idValidation = validateIdNumber(id);
+    if (!idValidation.isValid) {
+        const errorMessage = idValidation.errors.join('. ');
+        logger.logValidation('id', id, errorMessage, 'anonymous');
+        console.error('Registration error: Invalid ID number:', errorMessage);
+        const token = ErrorHandler.setError(req, 'registration', errorMessage);
+        return res.redirect('/?err=' + token);
+    }
+
+    const normalizedId = idValidation.normalized;
+
+    if (!normalizedEmail) {
         logger.logValidation('email', email, 'Email is required', 'anonymous');
         console.error('Registration error: Email is required');
         const token = ErrorHandler.setError(req, 'registration', 'Email is required');
@@ -154,7 +171,7 @@ async function handleRegistration(req, res) {
             // Handle hashing error
             console.error('Error hashing password:', err);
             logger.writeLog('ERROR', 'REGISTRATION', 'Password hashing failed', {
-                email: email ? email.toLowerCase().trim() : 'unknown',
+                email: normalizedEmail || 'unknown',
                 error: err.message,
                 stack: err.stack
             });
@@ -167,7 +184,7 @@ async function handleRegistration(req, res) {
             if (err2) {
                 console.error('Error hashing security answer:', err2);
                 logger.writeLog('ERROR', 'REGISTRATION', 'Security answer hashing failed', {
-                    email: email ? email.toLowerCase().trim() : 'unknown',
+                    email: normalizedEmail || 'unknown',
                     error: err2.message,
                     stack: err2.stack
                 });
@@ -179,8 +196,8 @@ async function handleRegistration(req, res) {
             const newUser = new User({ 
                 fname: fname.trim(), 
                 lname: lname.trim(), 
-                id: id.trim(), 
-                email: email.toLowerCase().trim(), 
+                id: normalizedId, 
+                email: normalizedEmail, 
                 password: hash,
                 securityQuestion: securityQuestion,
                 securityAnswer: answerHash,
@@ -207,8 +224,8 @@ async function handleRegistration(req, res) {
                 if (err.code === 11000) {
                     const field = Object.keys(err.keyPattern)[0];
                     const errorMsg = field === 'email' ? 'Email already exists' : 'ID number already exists';
-                    console.error('Registration error - Duplicate entry:', { field, email: email ? email.toLowerCase().trim() : 'unknown', id });
-                    logger.logValidation(field, field === 'email' ? email : id, 'Duplicate entry', 'anonymous');
+                    console.error('Registration error - Duplicate entry:', { field, email: normalizedEmail || 'unknown', id: normalizedId });
+                    logger.logValidation(field, field === 'email' ? normalizedEmail : normalizedId, 'Duplicate entry', 'anonymous');
                     const token = ErrorHandler.setError(req, 'registration', errorMsg);
                     return res.redirect('/?err=' + token);
                 }
@@ -217,12 +234,12 @@ async function handleRegistration(req, res) {
                 if (err.name === 'ValidationError') {
                     const validationErrors = Object.values(err.errors).map(e => e.message).join(', ');
                     console.error('Registration error - Validation failed:', {
-                        email: email ? email.toLowerCase().trim() : 'unknown',
+                        email: normalizedEmail || 'unknown',
                         errors: validationErrors,
                         fullError: err
                     });
                     logger.writeLog('ERROR', 'REGISTRATION', 'Validation error', {
-                        email: email ? email.toLowerCase().trim() : 'unknown',
+                        email: normalizedEmail || 'unknown',
                         errors: validationErrors,
                         errorDetails: err.errors
                     });
@@ -232,7 +249,7 @@ async function handleRegistration(req, res) {
 
                 // Handle other errors
                 console.error('Registration error - Failed to save user:', {
-                    email: email ? email.toLowerCase().trim() : 'unknown',
+                    email: normalizedEmail || 'unknown',
                     error: err.message,
                     errorName: err.name,
                     errorCode: err.code,
@@ -240,7 +257,7 @@ async function handleRegistration(req, res) {
                     fullError: err
                 });
                 logger.writeLog('ERROR', 'REGISTRATION', 'Failed to save user', {
-                    email: email ? email.toLowerCase().trim() : 'unknown',
+                    email: normalizedEmail || 'unknown',
                     error: err.message,
                     errorName: err.name,
                     errorCode: err.code,
