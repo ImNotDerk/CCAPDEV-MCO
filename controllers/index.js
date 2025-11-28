@@ -63,8 +63,14 @@ router.post('/login', function (req,resp) {
 });
 
 router.get('/logout', function (req, resp) {
-    req.session.destroy();
-    resp.redirect('/LoginPage');
+    req.session.destroy(function(err) {
+        if (err) {
+            console.error('Error destroying session:', err);
+        }
+        // Clear the session cookie explicitly
+        resp.clearCookie('connect.sid');
+        resp.redirect('/LoginPage');
+    });
 });
 
 router.post('/register', function (req,resp){
